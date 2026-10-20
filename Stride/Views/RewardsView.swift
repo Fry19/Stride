@@ -38,7 +38,7 @@ struct RewardsView: View {
                             .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 6)
-                    if model.state.useSampleData {
+                    if model.showsSampleDataBanner {
                         SampleDataBanner()
                     }
                 }

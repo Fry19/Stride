@@ -14,7 +14,7 @@ struct PassportView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
-                    if model.state.useSampleData {
+                    if model.showsSampleDataBanner {
                         SampleDataBanner()
                     }
 

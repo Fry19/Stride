@@ -1,21 +1,30 @@
 import SwiftUI
 
+enum AppTab: String {
+    case today, journey, passport, rewards
+}
+
 struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
+    @State private var tab = ScreenshotMode.initialTab
 
     var body: some View {
         Group {
             if model.state.hasOnboarded {
-                TabView {
+                TabView(selection: $tab) {
                     TodayView()
                         .tabItem { Label("Today", systemImage: "figure.walk") }
+                        .tag(AppTab.today)
                     JourneyView()
                         .tabItem { Label("Journey", systemImage: "map") }
+                        .tag(AppTab.journey)
                     PassportView()
                         .tabItem { Label("Passport", systemImage: "seal") }
+                        .tag(AppTab.passport)
                     RewardsView()
                         .tabItem { Label("Rewards", systemImage: "gift") }
+                        .tag(AppTab.rewards)
                 }
             } else {
                 OnboardingView()

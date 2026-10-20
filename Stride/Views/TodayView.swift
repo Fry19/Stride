@@ -12,7 +12,7 @@ struct TodayView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    if model.state.useSampleData {
+                    if model.showsSampleDataBanner {
                         SampleDataBanner()
                     }
                     hero(today)

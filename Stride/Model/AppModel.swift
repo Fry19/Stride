@@ -17,9 +17,17 @@ final class AppModel {
     @ObservationIgnored private var liveDay: Day?
 
     init() {
-        let state = StateStore.load() ?? SavedState(startDay: Day(Date()))
+        let today = Day(Date())
+        let state = ScreenshotMode.isActive
+            ? ScreenshotMode.state(today: today)
+            : StateStore.load() ?? SavedState(startDay: today)
         self.state = state
-        self.summary = Self.makeSummary(for: state, today: Day(Date()))
+        self.summary = Self.makeSummary(for: state, today: today)
+        self.celebration = ScreenshotMode.celebration(from: summary)
+    }
+
+    var showsSampleDataBanner: Bool {
+        state.useSampleData && !ScreenshotMode.isActive
     }
 
     /// Today's goal.
@@ -45,7 +53,7 @@ final class AppModel {
     }
 
     func refresh() async {
-        guard state.hasOnboarded, !isRefreshing else { return }
+        guard state.hasOnboarded, !isRefreshing, !ScreenshotMode.isActive else { return }
         isRefreshing = true
         defer { isRefreshing = false }
 
@@ -148,6 +156,7 @@ final class AppModel {
     }
 
     func save() {
+        guard !ScreenshotMode.isActive else { return }
         StateStore.save(state)
     }
 
