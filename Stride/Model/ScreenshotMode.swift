@@ -26,6 +26,7 @@ enum ScreenshotMode {
             Reward(name: "Fancy coffee", cost: 300),
             Reward(name: "Movie night", cost: 1_200),
             Reward(name: "New walking shoes", cost: 6_000),
+            Reward(name: "Weekend away", cost: 15_000),
         ]
         return state
     }

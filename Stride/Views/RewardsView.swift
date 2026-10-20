@@ -178,11 +178,13 @@ private struct RewardRow: View {
             }
             HStack(spacing: 12) {
                 ProgressView(value: min(1, Double(max(balance, 0)) / Double(max(reward.cost, 1))))
-                    .tint(canRedeem ? Color.pine : Color.coin)
-                if canRedeem {
+                    .tint(balance >= reward.cost ? Color.pine : Color.coin)
+                if balance >= reward.cost {
+                    // Disabled while sample data is showing.
                     Button("Redeem", action: redeem)
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
+                        .disabled(!canRedeem)
                 } else {
                     Text("\(max(reward.cost - balance, 0).formatted()) to go")
                         .font(.caption)

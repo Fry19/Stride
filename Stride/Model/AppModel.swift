@@ -131,7 +131,7 @@ final class AppModel {
     }
 
     func canRedeem(_ reward: Reward) -> Bool {
-        !state.useSampleData && summary.balance >= reward.cost
+        (!state.useSampleData || ScreenshotMode.isActive) && summary.balance >= reward.cost
     }
 
     @discardableResult
