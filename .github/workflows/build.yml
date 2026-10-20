@@ -15,18 +15,19 @@ jobs:
     name: Reward engine tests
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Run StrideCore tests
         working-directory: StrideCore
         run: |
           set -o pipefail
-          swift test 2>&1 | xcbeautify --renderer github-actions
+          swift test 2>&1 | tee test.log | xcbeautify --renderer github-actions
+          echo "::notice title=XCTest::$(grep -E 'Executed [0-9]+ tests' test.log | tail -1)"
 
   app:
     name: Build app
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Show Xcode version
         run: xcodebuild -version
       - name: Build for iOS Simulator
