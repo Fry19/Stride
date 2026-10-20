@@ -17,8 +17,6 @@ xcuserdata/
 Packages/
 Package.resolved
 
-# Generated Xcode project (created from project.yml with XcodeGen)
-*.xcodeproj/
 
 # macOS
 .DS_Store
