@@ -45,30 +45,34 @@ struct CelebrationView: View {
     private var glow: Color { (newTier ?? level.tier).color }
 
     var body: some View {
-        ZStack {
-            Theme.background.ignoresSafeArea()
-            rays
-            ScrollView {
-                VStack(spacing: 22) {
-                    hero
-                        .padding(.top, 36)
-                    if bonusXP > 0 {
-                        Text("+\(StrideFormat.xp(bonusXP))")
-                            .font(.system(size: 20, weight: .bold, design: .rounded))
-                            .foregroundStyle(Theme.xpColors[0])
-                    }
-                    ForEach(Array(others.enumerated()), id: \.element.id) { index, unlock in
-                        UnlockRow(unlock: unlock)
-                            .opacity(appeared || reduceMotion ? 1 : 0)
-                            .offset(y: appeared || reduceMotion ? 0 : 24)
-                            .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.8)
-                                .delay(0.35 + Double(index) * 0.08), value: appeared)
-                    }
+        ScrollView {
+            VStack(spacing: 22) {
+                hero
+                    .padding(.top, 36)
+                if bonusXP > 0 {
+                    Text("+\(StrideFormat.xp(bonusXP))")
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .foregroundStyle(Theme.xpColors[0])
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 24)
+                ForEach(Array(others.enumerated()), id: \.element.id) { index, unlock in
+                    UnlockRow(unlock: unlock)
+                        .opacity(appeared || reduceMotion ? 1 : 0)
+                        .offset(y: appeared || reduceMotion ? 0 : 24)
+                        .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.8)
+                            .delay(0.35 + Double(index) * 0.08), value: appeared)
+                }
             }
-            .scrollIndicators(.hidden)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 24)
+        }
+        .scrollIndicators(.hidden)
+        // In the background so the oversized rays can't widen the layout.
+        .background {
+            ZStack {
+                Theme.background
+                rays
+            }
+            .ignoresSafeArea()
         }
         .safeAreaInset(edge: .bottom) {
             Button("Collect", action: onDone)

@@ -31,11 +31,10 @@ extension RaceStatus {
         return days
     }
 
-    /// A made-up race for sample data: earlier days' steps spread evenly over waking hours.
+    /// A made-up race for sample data, which puts today a little over halfway through the day.
     static func sample(today: Day, summary: RewardSummary, now: Date) -> RaceStatus {
-        let wakingFraction = min(1, max(0, (now.timeIntervalSince(today.startDate()) / 3600 - 7) / 15))
         let rivals = rivalDays(today: today, summary: summary).map {
-            Rival(name: $0.name, day: $0.day, stepsByNow: Int(Double($0.total) * wakingFraction), dayTotal: $0.total)
+            Rival(name: $0.name, day: $0.day, stepsByNow: Int(Double($0.total) * 0.55), dayTotal: $0.total)
         }
         return RaceStatus(rivals: rivals, asOf: now)
     }
