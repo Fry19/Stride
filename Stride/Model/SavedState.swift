@@ -17,6 +17,8 @@ struct SavedState: Codable {
     var bonuses: [BonusXP] = []
     /// Today's steps on the Lock Screen and in the Dynamic Island.
     var showsLiveActivity = true
+    /// Journeys chosen, oldest first.
+    var journeys: [JourneyPlan] = []
 
     init(startDay: Day) {
         self.startDay = startDay
@@ -34,6 +36,7 @@ struct SavedState: Codable {
         iconTier = try container.decodeIfPresent(Int.self, forKey: .iconTier)
         bonuses = try container.decodeIfPresent([BonusXP].self, forKey: .bonuses) ?? []
         showsLiveActivity = try container.decodeIfPresent(Bool.self, forKey: .showsLiveActivity) ?? true
+        journeys = try container.decodeIfPresent([JourneyPlan].self, forKey: .journeys) ?? []
     }
 }
 

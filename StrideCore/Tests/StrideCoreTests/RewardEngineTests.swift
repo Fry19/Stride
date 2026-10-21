@@ -144,25 +144,74 @@ final class RewardEngineTests: XCTestCase {
         XCTAssertEqual(summary.level.level, 3)
     }
 
-    func testJourneyReachesStopsAndMovesToTheNextRoute() {
-        // 44 km is past the end of the Inca Trail (43 km) and 1 km into Hadrian's Wall.
-        let activity = [DayActivity(day: start, steps: 50_000, meters: 44_000)]
-        let summary = RewardEngine.summarize(RewardInput(
-            activity: activity, startDay: start, today: start,
-            goalChanges: [GoalChange(from: start, goal: 8_000)]))
-        let journey = summary.journey
-        XCTAssertEqual(journey.route.id, "hadrian")
+    private func journeySummary(meters: [Double], plans: [JourneyPlan]) -> RewardSummary {
+        let activity = meters.enumerated().map { offset, distance in
+            DayActivity(day: start.adding(days: offset), steps: Int(distance / 0.75), meters: distance)
+        }
+        return RewardEngine.summarize(RewardInput(
+            activity: activity, startDay: start, today: start.adding(days: meters.count - 1),
+            goalChanges: [GoalChange(from: start, goal: 8_000)], journeys: plans))
+    }
+
+    func testJourneyProgressCountsFromItsStartDay() {
+        let hadrian = Journeys.epic.first { $0.id == "hadrian" }!
+        // 5 km before the journey starts doesn't count; 1 km after does.
+        let summary = journeySummary(meters: [5_000, 1_000],
+                                     plans: [JourneyPlan(route: hadrian, startDay: start.adding(days: 1))])
+        let journey = summary.journey!
         XCTAssertEqual(journey.kmIntoRoute, 1, accuracy: 0.001)
         XCTAssertEqual(journey.nextStop?.id, "hadrian.newcastle")
-        XCTAssertEqual(journey.reached.map(\.stop.id).suffix(2), ["inca.machupicchu", "hadrian.wallsend"])
+        XCTAssertEqual(journey.reached.map(\.stop.id), ["hadrian.wallsend"])
         XCTAssertFalse(journey.isComplete)
 
         // 1 km of the 7 between Wallsend and Newcastle.
-        let wallsend = Journeys.routes[1].stops[0], newcastle = Journeys.routes[1].stops[1]
+        let wallsend = hadrian.stops[0], newcastle = hadrian.stops[1]
         XCTAssertEqual(journey.coordinate.latitude,
                        wallsend.latitude + (newcastle.latitude - wallsend.latitude) / 7, accuracy: 0.0001)
         XCTAssertEqual(journey.coordinate.longitude,
                        wallsend.longitude + (newcastle.longitude - wallsend.longitude) / 7, accuracy: 0.0001)
+    }
+
+    func testFinishingAJourneyGivesXP() {
+        let inca = Journeys.epic.first { $0.id == "inca" }!
+        let summary = journeySummary(meters: [20_000, 30_000], plans: [JourneyPlan(route: inca, startDay: start)])
+        let journey = summary.journeys[0]
+        XCTAssertEqual(journey.completedOn, start.adding(days: 1))
+        XCTAssertEqual(journey.kmIntoRoute, inca.lengthKm)
+        XCTAssertEqual(summary.journeyXP, 4_300)
+        XCTAssertEqual(summary.totalXP, summary.stepXP + summary.badgeXP + 4_300)
+        XCTAssertTrue(summary.unlocks.contains { $0.id == "journey:inca:\(start.id)" })
+        XCTAssertEqual(journey.reached.last?.stop.id, "inca.machupicchu")
+    }
+
+    func testSwitchingJourneysEndsTheOldOne() {
+        let inca = Journeys.epic.first { $0.id == "inca" }!
+        let camino = Journeys.epic.first { $0.id == "camino" }!
+        let plans = [JourneyPlan(route: inca, startDay: start, endDay: start),
+                     JourneyPlan(route: camino, startDay: start.adding(days: 1))]
+        let summary = journeySummary(meters: [3_000, 4_000], plans: plans)
+        XCTAssertEqual(summary.journeys[0].kmIntoRoute, 3, accuracy: 0.001)
+        XCTAssertEqual(summary.journey?.route.id, "camino")
+        XCTAssertEqual(summary.journey?.kmIntoRoute ?? 0, 4, accuracy: 0.001)
+        XCTAssertEqual(summary.postcards.map(\.stop.id), ["inca.km82", "camino.sjpp"])
+    }
+
+    func testNoJourneyUntilOneIsChosen() {
+        let summary = journeySummary(meters: [3_000], plans: [])
+        XCTAssertNil(summary.journey)
+        XCTAssertEqual(summary.journeyXP, 0)
+    }
+
+    func testPositionFollowsADetailedPath() {
+        // A straight 2 km path east along the equator drawn with 3 points, and one stop at each end.
+        let path = [Coordinate(latitude: 0, longitude: 0), Coordinate(latitude: 0, longitude: 0.009),
+                    Coordinate(latitude: 0, longitude: 0.018)]
+        let route = Route(id: "test", name: "Test", region: "Nowhere", stops: [
+            Stop(id: "a", name: "A", km: 0, fact: "", latitude: 0, longitude: 0),
+            Stop(id: "b", name: "B", km: 2, fact: "", latitude: 0, longitude: 0.018),
+        ], path: path)
+        let summary = journeySummary(meters: [500], plans: [JourneyPlan(route: route, startDay: start)])
+        XCTAssertEqual(summary.journey?.coordinate.longitude ?? 0, 0.0045, accuracy: 0.0001)
     }
 
     func testMissingDistanceFallsBackToStride() {
@@ -216,10 +265,17 @@ final class RewardEngineTests: XCTestCase {
     }
 
     func testRouteStopsAreInOrder() {
-        for route in Journeys.routes {
+        for route in Journeys.epic {
             XCTAssertEqual(route.stops.first?.km, 0, route.name)
             XCTAssertEqual(route.stops.map(\.km), route.stops.map(\.km).sorted(), route.name)
         }
-        XCTAssertEqual(Set(Journeys.milestones.map(\.stop.id)).count, Journeys.milestones.count)
+        let ids = Journeys.epic.flatMap(\.stops).map(\.id)
+        XCTAssertEqual(Set(ids).count, ids.count)
+    }
+
+    func testRoutesRoundTripThroughJSON() throws {
+        let plan = JourneyPlan(route: Journeys.epic[0], startDay: start)
+        let decoded = try JSONDecoder().decode(JourneyPlan.self, from: JSONEncoder().encode(plan))
+        XCTAssertEqual(decoded, plan)
     }
 }

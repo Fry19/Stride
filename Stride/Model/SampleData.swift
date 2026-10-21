@@ -21,6 +21,11 @@ enum SampleData {
         return (start, activity)
     }
 
+    /// The Camino de Santiago, started on the first day of sample data.
+    static func journeys(startDay: Day) -> [JourneyPlan] {
+        Journeys.epic.first { $0.id == "camino" }.map { [JourneyPlan(route: $0, startDay: startDay)] } ?? []
+    }
+
     /// Two made-up walks around the Central Park Reservoir in New York.
     static func walks(endingOn today: Day) -> [Walk] {
         let center = (latitude: 40.7829, longitude: -73.9626)

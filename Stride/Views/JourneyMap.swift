@@ -8,9 +8,32 @@ extension Stop {
     }
 }
 
+extension Coordinate {
+    var location: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+}
+
 extension JourneyProgress {
     var location: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: coordinate.latitude, longitude: coordinate.longitude)
+    }
+
+    /// The part of the route already walked, ending where you are.
+    var walkedPath: [CLLocationCoordinate2D] {
+        let path = route.path
+        guard path.count > route.stops.count, path.count > 1 else {
+            return route.stops.filter { reachedStop($0) != nil }.map(\.location) + [location]
+        }
+        let legs = zip(path, path.dropFirst()).map { $0.km(to: $1) }
+        var remaining = legs.reduce(0, +) * routeFraction
+        var walked = [path[0].location]
+        for (index, leg) in legs.enumerated() {
+            guard remaining > leg else { break }
+            walked.append(path[index + 1].location)
+            remaining -= leg
+        }
+        return walked + [location]
     }
 }
 
@@ -25,9 +48,9 @@ struct JourneyMap: View {
     var body: some View {
         let color = Color.route(journey.route.id)
         let stops = journey.route.stops
-        let walked = stops.filter { journey.reachedStop($0) != nil }.map(\.location) + [journey.location]
+        let walked = journey.walkedPath
         Map(position: $position, interactionModes: interactive ? .all : []) {
-            MapPolyline(coordinates: stops.map(\.location))
+            MapPolyline(coordinates: journey.route.path.map(\.location))
                 .stroke(Color.white.opacity(0.55), style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [2, 7]))
             MapPolyline(coordinates: walked)
                 .stroke(color, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
@@ -45,7 +68,38 @@ struct JourneyMap: View {
             }
             .annotationTitles(.hidden)
         }
-        .mapStyle(.imagery(elevation: .realistic))
+        .mapStyle(journey.route.id.hasPrefix("nearby") ? .hybrid(elevation: .realistic) : .imagery(elevation: .realistic))
+    }
+}
+
+/// A small, still map of a route, for choosing a journey.
+struct RoutePreviewMap: View {
+    let route: Route
+
+    var body: some View {
+        let color = Color.route(route.id)
+        Map(initialPosition: .automatic, interactionModes: []) {
+            MapPolyline(coordinates: route.path.map(\.location))
+                .stroke(color, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+            if let first = route.stops.first {
+                Annotation("Start", coordinate: first.location) {
+                    Circle().fill(.white).frame(width: 10, height: 10)
+                        .overlay(Circle().stroke(color, lineWidth: 3))
+                }
+                .annotationTitles(.hidden)
+            }
+            if let last = route.stops.last {
+                Annotation(last.name, coordinate: last.location) {
+                    Image(systemName: "flag.checkered")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(5)
+                        .background(color, in: Circle())
+                }
+                .annotationTitles(.hidden)
+            }
+        }
+        .mapStyle(.standard(elevation: .flat, emphasis: .muted))
     }
 }
 

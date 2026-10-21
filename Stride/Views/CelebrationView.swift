@@ -37,6 +37,7 @@ struct CelebrationView: View {
             case .stamp: return total + RewardRules.goalBonusXP
             case .badge(let badge, _): return total + badge.xp
             case .quest(let bonus): return total + bonus.xp
+            case .journeyComplete(_, _, let xp): return total + xp
             case .stop, .freezeUsed, .levelUp: return total
             }
         }
@@ -158,6 +159,7 @@ struct CelebrationView: View {
         case .freezeUsed: return "Streak saved"
         case .levelUp: return "Level up!"
         case .quest: return others.count > 1 ? "Quests complete!" : "Quest complete!"
+        case .journeyComplete: return "Journey complete!"
         }
     }
 }
@@ -186,6 +188,7 @@ private extension Unlock {
         case .freezeUsed: return "freeze"
         case .levelUp: return "level"
         case .quest: return "quest"
+        case .journeyComplete: return "journey"
         }
     }
 }
@@ -241,6 +244,12 @@ private struct UnlockRow: View {
                 .frame(width: 56, height: 56)
                 .background(LinearGradient(colors: Theme.xpColors, startPoint: .topLeading, endPoint: .bottomTrailing),
                             in: Circle())
+        case .journeyComplete(let plan, _, _):
+            Image(systemName: "flag.checkered")
+                .font(.system(size: 24, weight: .bold))
+                .foregroundStyle(Color.route(plan.route.id))
+                .frame(width: 56, height: 56)
+                .background(Color.route(plan.route.id).opacity(0.16), in: Circle())
         case .levelUp:
             EmptyView()
         }
@@ -254,6 +263,7 @@ private struct UnlockRow: View {
         case .freezeUsed: return "Streak saved"
         case .levelUp(let level, _): return "Level \(level)"
         case .quest(let bonus): return Quests.all.first { "quest.\($0.id)" == bonus.id }?.title ?? "Quest complete"
+        case .journeyComplete(let plan, _, _): return "You made it to \(plan.route.stops.last?.name ?? plan.route.name)"
         }
     }
 
@@ -261,10 +271,12 @@ private struct UnlockRow: View {
         switch unlock.kind {
         case .stamp(let result): return "\(StrideFormat.longDate(result.day)) · \(result.steps.formatted()) steps"
         case .badge(let badge, _): return badge.detail
-        case .stop(let reached): return "New postcard from the \(reached.route.name)"
+        case .stop(let reached): return "New postcard from \(reached.route.name)"
         case .freezeUsed(let day): return "A freeze covered \(StrideFormat.date(day)), so your streak lives on."
         case .levelUp: return ""
         case .quest(let bonus): return Quests.all.first { "quest.\($0.id)" == bonus.id }?.detail ?? "Daily quest"
+        case .journeyComplete(let plan, let day, _):
+            return "\(plan.route.name) finished on \(StrideFormat.date(day)): \(StrideFormat.distance(km: plan.route.lengthKm))."
         }
     }
 
@@ -273,6 +285,7 @@ private struct UnlockRow: View {
         case .stamp: return RewardRules.goalBonusXP
         case .badge(let badge, _): return badge.xp
         case .quest(let bonus): return bonus.xp
+        case .journeyComplete(_, _, let xp): return xp
         case .stop, .freezeUsed, .levelUp: return nil
         }
     }

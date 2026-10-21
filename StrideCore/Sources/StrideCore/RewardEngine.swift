@@ -8,13 +8,17 @@ public struct RewardInput {
     public var goalChanges: [GoalChange]
     /// Extra XP, such as from quests.
     public var bonuses: [BonusXP]
+    /// Journeys the user has chosen, oldest first. The last one without an end day is in progress.
+    public var journeys: [JourneyPlan]
 
-    public init(activity: [DayActivity], startDay: Day, today: Day, goalChanges: [GoalChange], bonuses: [BonusXP] = []) {
+    public init(activity: [DayActivity], startDay: Day, today: Day, goalChanges: [GoalChange],
+                bonuses: [BonusXP] = [], journeys: [JourneyPlan] = []) {
         self.activity = activity
         self.startDay = startDay
         self.today = today
         self.goalChanges = goalChanges
         self.bonuses = bonuses
+        self.journeys = journeys
     }
 }
 
@@ -57,18 +61,24 @@ public struct ReachedStop: Identifiable, Hashable {
     public let route: Route
     public let stop: Stop
     public let day: Day
+    /// When the journey this stop belongs to was started, so a route walked twice gets new postcards.
+    public let journeyStart: Day
 
-    public var id: String { stop.id }
+    public var id: String { "\(journeyStart.id):\(stop.id)" }
 }
 
-public struct JourneyProgress: Hashable {
-    /// The route being walked, or the last route once every route is finished.
-    public let route: Route
+/// Progress on one chosen journey.
+public struct JourneyProgress: Identifiable, Hashable {
+    public let plan: JourneyPlan
     public let kmIntoRoute: Double
-    public let totalKm: Double
-    public let isComplete: Bool
-    /// Every stop reached so far, in the order reached.
+    public let completedOn: Day?
+    /// Stops reached on this journey, in order.
     public let reached: [ReachedStop]
+
+    public var id: String { "\(plan.route.id):\(plan.startDay.id)" }
+    public var route: Route { plan.route }
+    public var isComplete: Bool { completedOn != nil }
+    public var xp: Int { Journeys.xp(for: plan.route) }
 
     public var nextStop: Stop? {
         isComplete ? nil : route.stops.first { $0.km > kmIntoRoute }
@@ -86,9 +96,25 @@ public struct JourneyProgress: Hashable {
         reached.first { $0.stop.id == stop.id }
     }
 
-    /// Where you are on the map: between the last stop reached and the next, by distance.
+    /// Where you are on the map. On a detailed path (a real walking route) it's the same share of
+    /// the path's length; on a stop-to-stop path it's between the last stop reached and the next.
     public var coordinate: (latitude: Double, longitude: Double) {
         let stops = route.stops
+        let path = route.path
+        if path.count > stops.count, path.count > 1 {
+            let legs = zip(path, path.dropFirst()).map { $0.km(to: $1) }
+            var remaining = legs.reduce(0, +) * routeFraction
+            for (index, leg) in legs.enumerated() {
+                if remaining <= leg {
+                    let fraction = leg > 0 ? remaining / leg : 0
+                    let from = path[index], to = path[index + 1]
+                    return (from.latitude + (to.latitude - from.latitude) * fraction,
+                            from.longitude + (to.longitude - from.longitude) * fraction)
+                }
+                remaining -= leg
+            }
+            return (path[path.count - 1].latitude, path[path.count - 1].longitude)
+        }
         for (from, to) in zip(stops, stops.dropFirst()) where kmIntoRoute <= to.km {
             let fraction = to.km > from.km ? max(0, kmIntoRoute - from.km) / (to.km - from.km) : 0
             return (from.latitude + (to.latitude - from.latitude) * fraction,
@@ -109,6 +135,7 @@ public struct Unlock: Identifiable, Hashable {
         case freezeUsed(Day)
         case levelUp(Int, Day)
         case quest(BonusXP)
+        case journeyComplete(JourneyPlan, Day, xp: Int)
     }
 
     public let kind: Kind
@@ -117,10 +144,11 @@ public struct Unlock: Identifiable, Hashable {
         switch kind {
         case .stamp(let result): return "stamp:\(result.day.id)"
         case .badge(let badge, _): return "badge:\(badge.id)"
-        case .stop(let reached): return "stop:\(reached.stop.id)"
+        case .stop(let reached): return "stop:\(reached.id)"
         case .freezeUsed(let day): return "freeze:\(day.id)"
         case .levelUp(let level, _): return "level:\(level)"
         case .quest(let bonus): return "bonus:\(bonus.day.id):\(bonus.id)"
+        case .journeyComplete(let plan, _, _): return "journey:\(plan.route.id):\(plan.startDay.id)"
         }
     }
 }
@@ -140,8 +168,11 @@ public struct RewardSummary {
     /// XP earned day by day: steps, goal bonuses and quests.
     public let stepXP: Int
     public let badgeXP: Int
+    /// XP from finished journeys.
+    public let journeyXP: Int
     public let badges: [BadgeProgress]
-    public let journey: JourneyProgress
+    /// Every chosen journey, oldest first.
+    public let journeys: [JourneyProgress]
     /// In the order they were earned.
     public let unlocks: [Unlock]
 
@@ -149,7 +180,7 @@ public struct RewardSummary {
 
     init(today: Day, startDay: Day, goalChanges: [GoalChange], days: [DayResult], currentStreak: Int,
          bestStreak: Int, freezes: Int, lifetimeSteps: Int, lifetimeMeters: Double, stepXP: Int,
-         badgeXP: Int, badges: [BadgeProgress], journey: JourneyProgress, unlocks: [Unlock]) {
+         badgeXP: Int, journeyXP: Int, badges: [BadgeProgress], journeys: [JourneyProgress], unlocks: [Unlock]) {
         self.today = today
         self.startDay = startDay
         self.goalChanges = goalChanges
@@ -161,13 +192,24 @@ public struct RewardSummary {
         self.lifetimeMeters = lifetimeMeters
         self.stepXP = stepXP
         self.badgeXP = badgeXP
+        self.journeyXP = journeyXP
         self.badges = badges
-        self.journey = journey
+        self.journeys = journeys
         self.unlocks = unlocks
         self.index = Dictionary(uniqueKeysWithValues: days.enumerated().map { ($1.day, $0) })
     }
 
-    public var totalXP: Int { stepXP + badgeXP }
+    public var totalXP: Int { stepXP + badgeXP + journeyXP }
+
+    /// The journey being walked: the latest one, unless the user ended it by switching.
+    public var journey: JourneyProgress? {
+        journeys.last.flatMap { $0.plan.endDay == nil ? $0 : nil }
+    }
+
+    /// Every stop reached on every journey, oldest first.
+    public var postcards: [ReachedStop] {
+        journeys.flatMap(\.reached).sorted { $0.day < $1.day }
+    }
     public var level: LevelProgress { LevelProgress(xp: totalXP) }
 
     public var todayResult: DayResult {
@@ -211,7 +253,7 @@ public enum RewardEngine {
         }
         let earliest = byDay.keys.filter { $0 <= today }.min() ?? start
         let bonusesByDay = Dictionary(grouping: input.bonuses, by: \.day)
-        let milestones = Journeys.milestones
+        let plans = input.journeys
 
         var days: [DayResult] = []
         var unlocks: [Unlock] = []
@@ -227,8 +269,10 @@ public enum RewardEngine {
         var badgeUnlocks: [String: Day] = [:]
         var badgeXP = 0
         var level = 1
-        var reached: [ReachedStop] = []
-        var nextMilestone = 0
+        var journeyXP = 0
+        var planMeters = Array(repeating: 0.0, count: plans.count)
+        var planReached = Array(repeating: [ReachedStop](), count: plans.count)
+        var planCompleted = Array(repeating: Day?.none, count: plans.count)
 
         func value(of metric: Badge.Metric) -> Double {
             switch metric {
@@ -294,21 +338,29 @@ public enum RewardEngine {
                 unlocks.append(Unlock(kind: .badge(badge, day)))
             }
 
-            let newLevel = Levels.level(forXP: stepXP + badgeXP)
+            for (index, plan) in plans.enumerated() where planCompleted[index] == nil && day >= plan.startDay {
+                if let end = plan.endDay, day > end { continue }
+                planMeters[index] += meters
+                let km = planMeters[index] / 1000
+                for stop in plan.route.stops where km >= stop.km && !planReached[index].contains(where: { $0.stop.id == stop.id }) {
+                    let reached = ReachedStop(route: plan.route, stop: stop, day: day, journeyStart: plan.startDay)
+                    planReached[index].append(reached)
+                    unlocks.append(Unlock(kind: .stop(reached)))
+                }
+                if km >= plan.route.lengthKm {
+                    planCompleted[index] = day
+                    let xp = Journeys.xp(for: plan.route)
+                    journeyXP += xp
+                    unlocks.append(Unlock(kind: .journeyComplete(plan, day, xp: xp)))
+                }
+            }
+
+            let newLevel = Levels.level(forXP: stepXP + badgeXP + journeyXP)
             if newLevel > level {
                 for levelReached in (level + 1)...newLevel {
                     unlocks.append(Unlock(kind: .levelUp(levelReached, day)))
                 }
                 level = newLevel
-            }
-
-            let km = lifetimeMeters / 1000
-            while nextMilestone < milestones.count && km >= milestones[nextMilestone].totalKm {
-                let milestone = milestones[nextMilestone]
-                let stop = ReachedStop(route: milestone.route, stop: milestone.stop, day: day)
-                reached.append(stop)
-                unlocks.append(Unlock(kind: .stop(stop)))
-                nextMilestone += 1
             }
         }
 
@@ -316,28 +368,20 @@ public enum RewardEngine {
             BadgeProgress(badge: $0, value: value(of: $0.metric), unlockedOn: badgeUnlocks[$0.id])
         }
 
+        let journeys = plans.indices.map { index in
+            JourneyProgress(plan: plans[index], kmIntoRoute: min(planMeters[index] / 1000, plans[index].route.lengthKm),
+                            completedOn: planCompleted[index], reached: planReached[index])
+        }
+
         return RewardSummary(
             today: today, startDay: start, goalChanges: input.goalChanges, days: days,
             currentStreak: streak, bestStreak: bestStreak, freezes: freezes,
             lifetimeSteps: lifetimeSteps, lifetimeMeters: lifetimeMeters,
-            stepXP: stepXP, badgeXP: badgeXP,
-            badges: badges, journey: journeyProgress(totalKm: lifetimeMeters / 1000, reached: reached),
-            unlocks: unlocks)
+            stepXP: stepXP, badgeXP: badgeXP, journeyXP: journeyXP,
+            badges: badges, journeys: journeys, unlocks: unlocks)
     }
 
     static func effectiveMeters(steps: Int, meters: Double) -> Double {
         meters > 0 ? meters : Double(steps) * RewardRules.fallbackStrideMeters
-    }
-
-    static func journeyProgress(totalKm: Double, reached: [ReachedStop]) -> JourneyProgress {
-        for route in Journeys.routes {
-            let start = Journeys.startKm(of: route)
-            if totalKm < start + route.lengthKm {
-                return JourneyProgress(route: route, kmIntoRoute: max(0, totalKm - start), totalKm: totalKm,
-                                       isComplete: false, reached: reached)
-            }
-        }
-        let last = Journeys.routes[Journeys.routes.count - 1]
-        return JourneyProgress(route: last, kmIntoRoute: last.lengthKm, totalKm: totalKm, isComplete: true, reached: reached)
     }
 }

@@ -21,6 +21,8 @@ final class AppModel {
     private(set) var walks: [Walk] = []
     /// The walk in progress, if any.
     let walk = WalkController()
+    /// Suggested journeys around the user's location.
+    let nearby = NearbyJourneyFinder()
     @ObservationIgnored private let liveActivity = LiveActivityManager()
 
     @ObservationIgnored private let health = HealthSource()
@@ -351,6 +353,31 @@ final class AppModel {
         }
     }
 
+    // MARK: - Journeys
+
+    /// Starts walking `route` from today. An unfinished journey in progress ends; one switched
+    /// away from on the day it began is dropped.
+    func startJourney(_ route: Route) {
+        let today = Day(Date())
+        if let current = summary.journey, !current.isComplete, let index = state.journeys.indices.last {
+            if state.journeys[index].startDay == today {
+                state.journeys.remove(at: index)
+            } else {
+                state.journeys[index].endDay = today.adding(days: -1)
+            }
+        }
+        state.journeys.append(JourneyPlan(route: route, startDay: today))
+        save()
+        recompute()
+    }
+
+    /// Average distance walked per day over the last two weeks, for estimating how long a journey takes.
+    var averageDailyKm: Double {
+        let days = summary.lastDays(14).filter { $0.steps > 0 }
+        guard !days.isEmpty else { return 6 }
+        return max(1, days.reduce(0) { $0 + $1.meters } / Double(days.count) / 1000)
+    }
+
     func setUseSampleData(_ on: Bool) {
         state.useSampleData = on
         save()
@@ -407,11 +434,11 @@ final class AppModel {
             let sample = SampleData.activity(endingOn: today)
             return RewardEngine.summarize(RewardInput(
                 activity: sample.activity, startDay: sample.startDay, today: today,
-                goalChanges: state.goalChanges))
+                goalChanges: state.goalChanges, journeys: SampleData.journeys(startDay: sample.startDay)))
         }
         // The engine keeps the higher count when a day appears twice.
         return RewardEngine.summarize(RewardInput(
             activity: state.activity + (live.map { [$0] } ?? []), startDay: state.startDay, today: today,
-            goalChanges: state.goalChanges, bonuses: state.bonuses))
+            goalChanges: state.goalChanges, bonuses: state.bonuses, journeys: state.journeys))
     }
 }

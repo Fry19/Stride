@@ -39,7 +39,10 @@ extension Color {
         switch id {
         case "inca": return Color(hex: 0xFF8A5C)
         case "hadrian": return Color(hex: 0x8FD3B0)
-        default: return Color(hex: 0x7FA8FF)
+        case "camino": return Color(hex: 0x7FA8FF)
+        case "appalachian": return Color(hex: 0x9BD86A)
+        case "route66": return Color(hex: 0xFF6B6B)
+        default: return Color(hex: 0x5CE1E6)  // nearby journeys
         }
     }
 }

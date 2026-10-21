@@ -388,11 +388,15 @@ private struct UpNextCard: View {
                         .frame(width: 30, height: 30)
                 }
             }
-            if let stop = summary.journey.nextStop, let km = summary.journey.kmToNextStop {
-                UpNextRow(title: stop.name,
-                          detail: "≈ \(StrideFormat.distance(km: km)) to go on the \(summary.journey.route.name)") {
+            if let journey = summary.journey, let stop = journey.nextStop, let km = journey.kmToNextStop {
+                UpNextRow(title: stop.name, detail: "\(StrideFormat.distance(km: km)) to go · \(journey.route.name)") {
                     Image(systemName: "mappin.and.ellipse")
-                        .foregroundStyle(Color.route(summary.journey.route.id))
+                        .foregroundStyle(Color.route(journey.route.id))
+                }
+            } else {
+                UpNextRow(title: "Choose a journey", detail: "Pick a place near you, or an epic trail, in the Journey tab.") {
+                    Image(systemName: "map.fill")
+                        .foregroundStyle(Theme.ember)
                 }
             }
             if let badge = nextBadge {

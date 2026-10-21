@@ -1,57 +1,87 @@
 import Foundation
 
-/// A place on a route, `km` from the route's start. Distances and positions are approximate.
-public struct Stop: Identifiable, Hashable {
+public struct Coordinate: Codable, Hashable {
+    public var latitude: Double
+    public var longitude: Double
+
+    public init(latitude: Double, longitude: Double) {
+        self.latitude = latitude
+        self.longitude = longitude
+    }
+
+    /// Distance to `other` in kilometers, along the Earth's surface.
+    public func km(to other: Coordinate) -> Double {
+        let radians = Double.pi / 180
+        let dLat = (other.latitude - latitude) * radians
+        let dLon = (other.longitude - longitude) * radians
+        let a = sin(dLat / 2) * sin(dLat / 2)
+            + cos(latitude * radians) * cos(other.latitude * radians) * sin(dLon / 2) * sin(dLon / 2)
+        return 6_371 * 2 * atan2(sqrt(a), sqrt(1 - a))
+    }
+}
+
+/// A place on a route, `km` from the route's start. For the famous trails, distances and
+/// positions are approximate.
+public struct Stop: Identifiable, Codable, Hashable {
     public let id: String
     public let name: String
     public let km: Double
     public let fact: String
     public let latitude: Double
     public let longitude: Double
+
+    public init(id: String, name: String, km: Double, fact: String, latitude: Double, longitude: Double) {
+        self.id = id
+        self.name = name
+        self.km = km
+        self.fact = fact
+        self.latitude = latitude
+        self.longitude = longitude
+    }
+
+    public var coordinate: Coordinate { Coordinate(latitude: latitude, longitude: longitude) }
 }
 
-public struct Route: Identifiable, Hashable {
+public struct Route: Identifiable, Codable, Hashable {
     public let id: String
     public let name: String
     public let region: String
     public let stops: [Stop]
+    /// The line drawn on the map: a real walking route for nearby journeys, or straight lines between stops.
+    public let path: [Coordinate]
+
+    public init(id: String, name: String, region: String, stops: [Stop], path: [Coordinate]? = nil) {
+        self.id = id
+        self.name = name
+        self.region = region
+        self.stops = stops
+        self.path = path ?? stops.map(\.coordinate)
+    }
 
     public var lengthKm: Double { stops.last?.km ?? 0 }
 }
 
-/// A stop on the virtual journey, placed by the total distance walked since starting Stride.
-public struct Milestone: Hashable {
-    public let route: Route
-    public let stop: Stop
-    public let totalKm: Double
+/// A journey the user chose, walked from `startDay` until it's finished or they switch.
+public struct JourneyPlan: Codable, Hashable {
+    public var route: Route
+    public var startDay: Day
+    /// The last day counted, set when the user switches to another journey.
+    public var endDay: Day?
+
+    public init(route: Route, startDay: Day, endDay: Day? = nil) {
+        self.route = route
+        self.startDay = startDay
+        self.endDay = endDay
+    }
 }
 
-/// Routes are walked one after another: finish one and the next begins.
 public enum Journeys {
-    public static let routes: [Route] = [incaTrail, hadriansWall, caminoFrances]
+    /// Famous long-distance walks to choose from.
+    public static let epic: [Route] = [incaTrail, hadriansWall, caminoFrances, appalachianTrail, route66]
 
-    public static let milestones: [Milestone] = {
-        var offset = 0.0
-        var result: [Milestone] = []
-        for route in routes {
-            for stop in route.stops {
-                result.append(Milestone(route: route, stop: stop, totalKm: offset + stop.km))
-            }
-            offset += route.lengthKm
-        }
-        return result
-    }()
-
-    public static var totalKm: Double { routes.reduce(0) { $0 + $1.lengthKm } }
-
-    /// Distance at which `route` begins.
-    public static func startKm(of route: Route) -> Double {
-        var offset = 0.0
-        for candidate in routes {
-            if candidate.id == route.id { return offset }
-            offset += candidate.lengthKm
-        }
-        return offset
+    /// XP for finishing a journey: 100 per kilometer, at least 500.
+    public static func xp(for route: Route) -> Int {
+        max(500, Int(route.lengthKm * 100))
     }
 
     static let incaTrail = Route(id: "inca", name: "Inca Trail", region: "Peru", stops: [
@@ -151,5 +181,59 @@ public enum Journeys {
         Stop(id: "camino.santiago", name: "Santiago de Compostela", km: 780,
              fact: "The cathedral city where, by tradition, the apostle St James is buried.",
              latitude: 42.8806, longitude: -8.5446),
+    ])
+
+    static let appalachianTrail = Route(id: "appalachian", name: "Appalachian Trail", region: "Eastern United States", stops: [
+        Stop(id: "appalachian.springer", name: "Springer Mountain", km: 0,
+             fact: "The trail's southern end, on a peak in north Georgia.",
+             latitude: 34.6268, longitude: -84.1938),
+        Stop(id: "appalachian.clingmans", name: "Clingmans Dome", km: 322,
+             fact: "The highest point on the whole trail, at 6,643 ft (2,025 m), in the Great Smoky Mountains.",
+             latitude: 35.5628, longitude: -83.4985),
+        Stop(id: "appalachian.damascus", name: "Damascus", km: 756,
+             fact: "A Virginia town nicknamed \"Trail Town USA\", home of the yearly Trail Days festival.",
+             latitude: 36.6332, longitude: -81.7887),
+        Stop(id: "appalachian.mcafee", name: "McAfee Knob", km: 1_150,
+             fact: "A rock ledge over the valley, often called the most photographed spot on the trail.",
+             latitude: 37.3925, longitude: -80.0363),
+        Stop(id: "appalachian.harpersferry", name: "Harpers Ferry", km: 1_650,
+             fact: "Home of the Appalachian Trail Conservancy, where the Shenandoah meets the Potomac.",
+             latitude: 39.3254, longitude: -77.7389),
+        Stop(id: "appalachian.delawaregap", name: "Delaware Water Gap", km: 2_084,
+             fact: "Where the trail crosses the Delaware River from Pennsylvania into New Jersey.",
+             latitude: 40.9693, longitude: -75.1424),
+        Stop(id: "appalachian.greylock", name: "Mount Greylock", km: 2_559,
+             fact: "The highest point in Massachusetts.",
+             latitude: 42.6376, longitude: -73.1662),
+        Stop(id: "appalachian.washington", name: "Mount Washington", km: 3_009,
+             fact: "New Hampshire's highest peak, known for some of the worst weather on Earth.",
+             latitude: 44.2706, longitude: -71.3033),
+        Stop(id: "appalachian.katahdin", name: "Katahdin", km: 3_536,
+             fact: "The northern end of the trail, on Maine's highest mountain.",
+             latitude: 45.9044, longitude: -68.9213),
+    ])
+
+    static let route66 = Route(id: "route66", name: "Route 66", region: "Chicago to Santa Monica", stops: [
+        Stop(id: "route66.chicago", name: "Chicago", km: 0,
+             fact: "The route begins on Adams Street, near the Art Institute.",
+             latitude: 41.8796, longitude: -87.6237),
+        Stop(id: "route66.stlouis", name: "St. Louis", km: 543,
+             fact: "The Gateway Arch marks the city's place as the gateway to the West.",
+             latitude: 38.6247, longitude: -90.1848),
+        Stop(id: "route66.tulsa", name: "Tulsa", km: 1_266,
+             fact: "Home of Cyrus Avery, often called the father of Route 66.",
+             latitude: 36.1540, longitude: -95.9928),
+        Stop(id: "route66.amarillo", name: "Amarillo", km: 1_935,
+             fact: "Just outside town is Cadillac Ranch: ten Cadillacs buried nose-first in a field.",
+             latitude: 35.2220, longitude: -101.8313),
+        Stop(id: "route66.albuquerque", name: "Albuquerque", km: 2_459,
+             fact: "Route 66 runs through the city as Central Avenue.",
+             latitude: 35.0844, longitude: -106.6504),
+        Stop(id: "route66.flagstaff", name: "Flagstaff", km: 3_047,
+             fact: "A mountain town at about 7,000 ft, not far from the Grand Canyon.",
+             latitude: 35.1983, longitude: -111.6513),
+        Stop(id: "route66.santamonica", name: "Santa Monica Pier", km: 3_940,
+             fact: "An \"End of the Trail\" sign on the pier marks the finish.",
+             latitude: 34.0094, longitude: -118.4973),
     ])
 }
