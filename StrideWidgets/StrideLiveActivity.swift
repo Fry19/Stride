@@ -40,10 +40,11 @@ struct StrideLiveActivity: Widget {
                     if let walk = state.walk {
                         HStack {
                             Label {
-                                Text(timerInterval: walk.startedAt...Date.distantFuture, countsDown: false)
+                                Text(timerInterval: walk.startedAt...Date.distantFuture, pauseTime: walk.pausedAt,
+                                     countsDown: false)
                                     .monospacedDigit()
                             } icon: {
-                                Image(systemName: "figure.walk").foregroundStyle(ember)
+                                Image(systemName: walk.pausedAt == nil ? "figure.walk" : "pause.fill").foregroundStyle(ember)
                             }
                             Spacer()
                             Text("\(walk.steps.formatted()) steps · \(state.distanceText(walk.meters))")
@@ -66,7 +67,7 @@ struct StrideLiveActivity: Widget {
                     }
                 }
             } compactLeading: {
-                Image(systemName: "figure.walk")
+                Image(systemName: state.walk?.pausedAt == nil ? "figure.walk" : "pause.fill")
                     .foregroundStyle(state.walk == nil ? (state.goalFraction >= 1 ? gold : ember) : ember)
             } compactTrailing: {
                 Text(state.todaySteps.formatted())
@@ -101,11 +102,11 @@ private struct LockScreenView: View {
             VStack(alignment: .leading, spacing: 2) {
                 if let walk = state.walk {
                     HStack(spacing: 6) {
-                        Text("WALKING")
+                        Text(walk.pausedAt == nil ? "WALKING" as String : "PAUSED")
                             .font(.system(size: 11, weight: .bold))
                             .tracking(1.4)
-                            .foregroundStyle(ember)
-                        Text(timerInterval: walk.startedAt...Date.distantFuture, countsDown: false)
+                            .foregroundStyle(walk.pausedAt == nil ? ember : gold)
+                        Text(timerInterval: walk.startedAt...Date.distantFuture, pauseTime: walk.pausedAt, countsDown: false)
                             .font(.system(size: 11, weight: .semibold, design: .rounded))
                             .monospacedDigit()
                             .foregroundStyle(.white.opacity(0.7))

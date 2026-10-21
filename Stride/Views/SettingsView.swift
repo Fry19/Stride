@@ -12,6 +12,9 @@ struct SettingsView: View {
     @State private var backupToRestore: StrideBackup?
     @State private var backupMessage: String?
     @AppStorage("lastBackup") private var lastBackup: Double = 0
+    @AppStorage(WalkPreferences.autoPauseKey) private var autoPause = true
+    @AppStorage(WalkPreferences.spokenUpdatesKey) private var spokenUpdates = true
+    @AppStorage(WalkPreferences.saveToHealthKey) private var saveToHealth = false
 
     var body: some View {
         NavigationStack {
@@ -35,6 +38,19 @@ struct SettingsView: View {
                         .tint(Theme.ember)
                 } footer: {
                     Text("Shows today's steps on the Lock Screen and in the Dynamic Island. They update live while Stride is open or you're on a walk, and every so often in the background when iOS allows it. iOS ends it after 8 hours; opening Stride starts it again.")
+                }
+
+                Section {
+                    Toggle("Auto-pause", isOn: $autoPause)
+                        .tint(Theme.ember)
+                    Toggle("Spoken updates", isOn: $spokenUpdates)
+                        .tint(Theme.ember)
+                    Toggle("Save walks to Apple Health", isOn: healthWorkouts)
+                        .tint(Theme.ember)
+                } header: {
+                    Text("Walks")
+                } footer: {
+                    Text("Auto-pause stops the clock when you stand still and starts it when you set off. Spoken updates call out your time and pace every \(StrideFormat.usesMiles ? "half mile" : "kilometer"), and your goal at halfway and the finish. Walks saved to Apple Health appear as workouts in the Health and Fitness apps, with their route.")
                 }
 
                 Section {
@@ -136,6 +152,13 @@ struct SettingsView: View {
             ? "Last saved \(Date(timeIntervalSince1970: lastBackup).formatted(date: .abbreviated, time: .omitted)). "
             : ""
         return saved + "Saves your XP, journeys, quests and walks to a file, for example in iCloud Drive. Deleting Stride deletes them, so save one before reinstalling."
+    }
+
+    private var healthWorkouts: Binding<Bool> {
+        Binding(get: { saveToHealth }, set: { on in
+            saveToHealth = on
+            Task { await model.setSavesWalksToHealth(on) }
+        })
     }
 
     private var restoring: Binding<Bool> {

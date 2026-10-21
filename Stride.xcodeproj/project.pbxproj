@@ -303,7 +303,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Stride;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Stride reads your steps and walking distance to award stamps, coins, badges and journey progress.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Stride reads your steps and walking distance to award XP, stamps, badges and journey progress.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Stride saves your walks to Apple Health as workouts, with their route, if you turn this on in Settings.";
 				INFOPLIST_FILE = "Config/Stride-Info.plist";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Stride uses your location during a walk to map your route and measure the distance.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "Stride uses your iPhone's step counter to update today's steps live while the app is open.";
@@ -339,7 +340,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Stride;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Stride reads your steps and walking distance to award stamps, coins, badges and journey progress.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Stride reads your steps and walking distance to award XP, stamps, badges and journey progress.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Stride saves your walks to Apple Health as workouts, with their route, if you turn this on in Settings.";
 				INFOPLIST_FILE = "Config/Stride-Info.plist";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Stride uses your location during a walk to map your route and measure the distance.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "Stride uses your iPhone's step counter to update today's steps live while the app is open.";

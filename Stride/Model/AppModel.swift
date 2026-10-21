@@ -29,6 +29,7 @@ final class AppModel {
     @ObservationIgnored private let liveActivity = LiveActivityManager()
 
     @ObservationIgnored private let health = HealthSource()
+    @ObservationIgnored private let workouts = WorkoutWriter()
     @ObservationIgnored private let motion = MotionSource()
     @ObservationIgnored private let detector = StepDetector()
     @ObservationIgnored private var liveDay: Day?
@@ -59,6 +60,7 @@ final class AppModel {
         if awardCompletedQuests() {
             self.summary = Self.makeSummary(for: self.state, live: nil, today: today)
         }
+        walk.onPauseChange = { [weak self] in self?.updateLiveActivity(force: true) }
     }
 
     var showsSampleDataBanner: Bool {
@@ -221,7 +223,7 @@ final class AppModel {
 
     func startWalk() {
         let today = summary.todayResult
-        walk.start(todaySteps: today.steps)
+        walk.start(todaySteps: today.steps, goal: today.goal)
         startLiveUpdates()
         updateLiveActivity(force: true)
     }
@@ -229,12 +231,45 @@ final class AppModel {
     /// Ends the walk in progress and returns it if it was long enough to keep.
     @discardableResult
     func finishWalk() -> Walk? {
-        guard let finished = walk.finish() else { return nil }
-        walks.insert(finished, at: 0)
+        guard let finished = walk.finish() else {
+            updateLiveActivity(force: true)
+            return nil
+        }
+        walks.insert(finished.walk, at: 0)
         if !ScreenshotMode.isActive { WalkStore.save(walks) }
         recompute()
         updateLiveActivity(force: true)
-        return finished
+        if WalkPreferences.saveToHealth && !ScreenshotMode.isActive {
+            Task { await saveToHealth(finished) }
+        }
+        return finished.walk
+    }
+
+    func pauseWalk() {
+        walk.pause()
+    }
+
+    func resumeWalk() {
+        walk.resume()
+    }
+
+    private func saveToHealth(_ finished: WalkController.Finished) async {
+        do {
+            try await workouts.save(finished)
+            guard let index = walks.firstIndex(where: { $0.id == finished.walk.id }) else { return }
+            walks[index].savedToHealth = true
+            WalkStore.save(walks)
+        } catch {
+            print("Couldn't save the walk to Health: \(error)")
+        }
+    }
+
+    /// Turns saving walks to Apple Health on or off, asking for access the first time.
+    func setSavesWalksToHealth(_ on: Bool) async {
+        if on {
+            try? await workouts.requestAccess()
+        }
+        UserDefaults.standard.set(on && workouts.isAllowed, forKey: WalkPreferences.saveToHealthKey)
     }
 
     func deleteWalk(_ walk: Walk) {
@@ -246,7 +281,7 @@ final class AppModel {
     private func longestWalkMinutesToday() -> Int {
         let today = Day(Date())
         let finished = walks.filter { Day($0.start) == today }.map(\.minutes).max() ?? 0
-        let current = walk.startDate.map { Int(Date().timeIntervalSince($0) / 60) } ?? 0
+        let current = walk.isActive ? Int(walk.movingSeconds() / 60) : 0
         return max(finished, current)
     }
 
@@ -478,7 +513,7 @@ final class AppModel {
         if awardCompletedQuests() {
             summary = Self.makeSummary(for: state, live: live, today: today)
         }
-        walk.noteTodaySteps(summary.todayResult.steps)
+        walk.noteTodaySteps(summary.todayResult.steps, goal: summary.todayResult.goal)
         updateLiveActivity()
         guard state.hasOnboarded, !state.useSampleData else { return }
         let showing = Set(celebration.map(\.id))

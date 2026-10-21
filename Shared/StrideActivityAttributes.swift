@@ -7,9 +7,12 @@ import Foundation
 struct StrideActivityAttributes: ActivityAttributes {
     struct ContentState: Codable, Hashable {
         struct Walk: Codable, Hashable {
+            /// When a timer counting from here shows the time spent moving.
             var startedAt: Date
             var steps: Int
             var meters: Double
+            /// Set while the walk is paused, to stop the timer.
+            var pausedAt: Date?
         }
 
         var todaySteps: Int

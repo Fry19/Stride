@@ -33,6 +33,7 @@ struct WalkView: View {
     @State private var position: MapCameraPosition = .userLocation(followsHeading: false, fallback: .automatic)
     @State private var finished: Walk?
     @State private var confirmingEnd = false
+    @AppStorage(WalkPreferences.spokenUpdatesKey) private var spokenUpdates = true
 
     var body: some View {
         let walk = model.walk
@@ -48,23 +49,34 @@ struct WalkView: View {
             .mapStyle(.standard(elevation: .realistic, emphasis: .muted))
             .mapControls { MapUserLocationButton() }
             .ignoresSafeArea()
+            .overlay(alignment: .topLeading) {
+                GlassIconButton(systemImage: spokenUpdates ? "speaker.wave.2.fill" : "speaker.slash.fill",
+                                label: spokenUpdates ? "Mute spoken updates" : "Turn on spoken updates") {
+                    spokenUpdates.toggle()
+                }
+                .padding(.leading, 16)
+                .padding(.top, 8)
+            }
 
             VStack(spacing: 18) {
-                if let start = walk.startDate {
+                if let start = walk.timerStart {
                     VStack(spacing: 2) {
-                        SectionLabel(text: "Walking")
-                        Text(timerInterval: start...Date.distantFuture, countsDown: false)
+                        Text(walk.isPaused ? (walk.isAutoPaused ? "AUTO-PAUSED" : "PAUSED") as String : "WALKING")
+                            .font(.system(size: 12, weight: .semibold))
+                            .tracking(1.6)
+                            .foregroundStyle(walk.isPaused ? Color(hex: 0xFFC247) : Theme.textTertiary)
+                        Text(timerInterval: start...Date.distantFuture, pauseTime: walk.pausedAt, countsDown: false)
                             .font(.system(size: 56, weight: .semibold, design: .rounded))
                             .monospacedDigit()
                             .foregroundStyle(.white)
+                            .opacity(walk.isPaused ? 0.55 : 1)
                     }
                 }
                 HStack(spacing: 12) {
                     WalkStat(value: walk.steps.formatted(), label: "Steps")
                     WalkStat(value: StrideFormat.distance(meters: walk.meters, decimals: 2), label: "Distance")
                     TimelineView(.periodic(from: .now, by: 5)) { context in
-                        WalkStat(value: WalkFormat.pace(seconds: context.date.timeIntervalSince(walk.startDate ?? context.date),
-                                                        meters: walk.meters),
+                        WalkStat(value: WalkFormat.pace(seconds: walk.movingSeconds(at: context.date), meters: walk.meters),
                                  label: "Pace")
                     }
                 }
@@ -85,6 +97,18 @@ struct WalkView: View {
                             .background(Color.white.opacity(0.1), in: Circle())
                     }
                     .accessibilityLabel("Hide, keep walking")
+                    Button {
+                        if walk.isPaused { model.resumeWalk() } else { model.pauseWalk() }
+                    } label: {
+                        Image(systemName: walk.isPaused ? "play.fill" : "pause.fill")
+                            .font(.system(size: 19, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 56, height: 56)
+                            .background(Color.white.opacity(0.1), in: Circle())
+                            .contentTransition(.symbolEffect(.replace))
+                    }
+                    .accessibilityLabel(walk.isPaused ? "Resume" : "Pause")
+                    .sensoryFeedback(.impact, trigger: walk.isPaused)
                     Button("End walk") {
                         confirmingEnd = true
                     }
@@ -142,7 +166,12 @@ struct WalkDetailView: View {
     let walk: Walk
     var isSummary = false
 
+    @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+
+    private var savedToHealth: Bool {
+        model.walks.first { $0.id == walk.id }?.savedToHealth ?? walk.savedToHealth ?? false
+    }
 
     var body: some View {
         NavigationStack {
@@ -166,9 +195,19 @@ struct WalkDetailView: View {
                             WalkStat(value: WalkFormat.pace(seconds: walk.duration, meters: walk.meters), label: "Pace")
                         }
                     }
-                    Text(walk.start.formatted(date: .complete, time: .shortened))
-                        .font(.footnote)
-                        .foregroundStyle(Theme.textTertiary)
+                    if let splits = walk.splits, !splits.isEmpty {
+                        SplitsView(splits: splits, metersEach: walk.splitMeters ?? 1_000)
+                    }
+                    HStack(spacing: 6) {
+                        Text(walk.start.formatted(date: .complete, time: .shortened))
+                        if savedToHealth {
+                            Text("·")
+                            Label("Saved to Apple Health", systemImage: "heart.fill")
+                                .labelStyle(.titleAndIcon)
+                        }
+                    }
+                    .font(.footnote)
+                    .foregroundStyle(Theme.textTertiary)
                 }
                 .padding(20)
             }
@@ -182,6 +221,43 @@ struct WalkDetailView: View {
             }
         }
         .presentationBackground(Theme.background)
+    }
+}
+
+/// Time for each whole mile or kilometer, the fastest highlighted.
+private struct SplitsView: View {
+    let splits: [TimeInterval]
+    let metersEach: Double
+
+    var body: some View {
+        let slowest = splits.max() ?? 1
+        let fastest = splits.min() ?? 0
+        let unit = metersEach > 1_500 ? "Mile" : "Km"
+        VStack(alignment: .leading, spacing: 10) {
+            SectionLabel(text: "Splits")
+            ForEach(Array(splits.enumerated()), id: \.offset) { index, split in
+                HStack(spacing: 12) {
+                    Text("\(unit) \(index + 1)")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(width: 58, alignment: .leading)
+                    GeometryReader { geometry in
+                        Capsule()
+                            .fill(split == fastest && splits.count > 1
+                                  ? AnyShapeStyle(LinearGradient(colors: Theme.ringColors, startPoint: .leading, endPoint: .trailing))
+                                  : AnyShapeStyle(Color.white.opacity(0.18)))
+                            .frame(width: max(8, geometry.size.width * split / slowest))
+                    }
+                    .frame(height: 8)
+                    Text(WalkFormat.duration(split))
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                        .frame(width: 58, alignment: .trailing)
+                }
+            }
+        }
+        .glass(radius: 22, padding: 16)
     }
 }
 
@@ -226,12 +302,18 @@ struct WalkLauncher: View {
 
     var body: some View {
         let walk = model.walk
-        if let start = walk.startDate {
+        if let start = walk.timerStart {
             Button(action: open) {
                 HStack(spacing: 14) {
-                    LiveDot()
+                    if walk.isPaused {
+                        Image(systemName: "pause.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Color(hex: 0xFFC247))
+                    } else {
+                        LiveDot()
+                    }
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Walk in progress")
+                        Text(walk.isPaused ? "Walk paused" as String : "Walk in progress")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.white)
                         Text("\(walk.steps.formatted()) steps · \(StrideFormat.distance(meters: walk.meters, decimals: 2))")
@@ -240,7 +322,7 @@ struct WalkLauncher: View {
                             .monospacedDigit()
                     }
                     Spacer()
-                    Text(timerInterval: start...Date.distantFuture, countsDown: false)
+                    Text(timerInterval: start...Date.distantFuture, pauseTime: walk.pausedAt, countsDown: false)
                         .font(.system(size: 20, weight: .semibold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(.white)
