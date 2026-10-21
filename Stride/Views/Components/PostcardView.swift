@@ -5,43 +5,48 @@ import SwiftUI
 struct PostcardView: View {
     let reached: ReachedStop
 
+    private var color: Color { Color.route(reached.route.id) }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text(reached.route.name.uppercased())
-                    .font(.caption.weight(.bold))
-                    .tracking(1.5)
+                    .font(.system(size: 12, weight: .bold))
+                    .tracking(1.6)
                 Spacer()
                 Text(reached.route.region)
-                    .font(.caption.weight(.semibold))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.textSecondary)
             }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .background(Color.route(reached.route.id))
+            .foregroundStyle(color)
 
-            VStack(alignment: .leading, spacing: 12) {
-                Text(reached.stop.name)
-                    .font(.system(size: 34, weight: .black))
-                    .fontWidth(.condensed)
-                Text(reached.stop.fact)
-                    .font(.body)
-                    .fixedSize(horizontal: false, vertical: true)
-                HStack {
-                    Label("Reached \(StrideFormat.date(reached.day))", systemImage: "mappin.and.ellipse")
-                    Spacer()
-                    Text(distanceText)
-                }
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.secondary)
+            Text(reached.stop.name)
+                .font(.system(size: 32, weight: .bold))
+                .foregroundStyle(.white)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(reached.stop.fact)
+                .font(.body)
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Label("Reached \(StrideFormat.date(reached.day))", systemImage: "mappin.and.ellipse")
+                Spacer()
+                Text(distanceText)
             }
-            .padding(20)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(Theme.textTertiary)
         }
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .padding(22)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(LinearGradient(colors: [color.opacity(0.28), Color.white.opacity(0.04)],
+                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+        }
         .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Color.route(reached.route.id).opacity(0.4), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(LinearGradient(colors: [color.opacity(0.6), Color.white.opacity(0.05)],
+                                             startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
         }
     }
 

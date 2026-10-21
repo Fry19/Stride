@@ -1,77 +1,87 @@
 import StrideCore
 import SwiftUI
 
-/// Progress toward the daily goal. Dots mark every 1,000 steps; a gold inner lap shows steps past the goal.
+/// Progress toward the daily goal: a glowing gradient arc that turns gold once the goal is met,
+/// with a second inner lap for steps past the goal.
 struct StepRing: View {
     let steps: Int
     let goal: Int
-    var lineWidth: CGFloat = 20
+    var lineWidth: CGFloat = 22
 
     private var fraction: Double { goal > 0 ? Double(steps) / Double(goal) : 0 }
-    private var markers: Int { min(goal / 1_000, 40) }
+    private var colors: [Color] { steps >= goal ? Theme.goldColors : Theme.ringColors }
 
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Color.blaze.opacity(0.15), lineWidth: lineWidth)
-            Circle()
-                .trim(from: 0, to: min(fraction, 1))
-                .stroke(Color.blaze, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-            GeometryReader { geometry in
-                let side = min(geometry.size.width, geometry.size.height)
-                ForEach(1..<max(markers, 1), id: \.self) { index in
-                    Circle()
-                        .fill(Color(.systemBackground).opacity(0.8))
-                        .frame(width: 4, height: 4)
-                        .offset(y: -(side - lineWidth) / 2)
-                        .frame(width: geometry.size.width, height: geometry.size.height)
-                        .rotationEffect(.degrees(Double(index) / Double(markers) * 360))
-                }
-            }
+                .stroke(Color.white.opacity(0.07), lineWidth: lineWidth)
+            arc(to: min(fraction, 1), width: lineWidth)
+                .blur(radius: 16)
+                .opacity(0.75)
+            arc(to: min(fraction, 1), width: lineWidth)
             if fraction > 1 {
-                Circle()
-                    .trim(from: 0, to: min(fraction - 1, 1))
-                    .stroke(Color.coin, style: StrokeStyle(lineWidth: lineWidth * 0.4, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                    .padding(lineWidth * 1.2)
+                arc(to: min(fraction - 1, 1), width: lineWidth * 0.45, colors: Theme.xpColors)
+                    .padding(lineWidth * 1.25)
             }
         }
-        .animation(.spring(duration: 0.6), value: steps)
+        .animation(.spring(response: 0.6, dampingFraction: 0.85), value: steps)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(steps.formatted()) of \(goal.formatted()) steps")
     }
-}
 
-struct CoinIcon: View {
-    var size: CGFloat = 16
-
-    var body: some View {
+    private func arc(to end: Double, width: CGFloat, colors: [Color]? = nil) -> some View {
         Circle()
-            .fill(Color.coin.gradient)
-            .overlay {
-                Circle()
-                    .strokeBorder(Color.white.opacity(0.55), lineWidth: max(1, size * 0.09))
-                    .padding(size * 0.2)
-            }
-            .frame(width: size, height: size)
-            .accessibilityHidden(true)
+            .trim(from: 0, to: max(end, 0.001))
+            .stroke(
+                AngularGradient(colors: colors ?? self.colors, center: .center,
+                                startAngle: .degrees(-6), endAngle: .degrees(max(360 * end, 12))),
+                style: StrokeStyle(lineWidth: width, lineCap: .round))
+            .rotationEffect(.degrees(-90))
     }
 }
 
-struct CoinAmount: View {
-    let value: Int
-    var prefix = ""
-    var iconSize: CGFloat = 16
+/// A gradient progress bar for XP.
+struct XPBar: View {
+    let fraction: Double
+    var height: CGFloat = 8
 
     var body: some View {
-        HStack(spacing: 5) {
-            CoinIcon(size: iconSize)
-            Text(prefix + value.formatted())
-                .monospacedDigit()
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.white.opacity(0.08))
+                Capsule()
+                    .fill(LinearGradient(colors: Theme.xpColors, startPoint: .leading, endPoint: .trailing))
+                    .frame(width: max(height, geometry.size.width * min(max(fraction, 0), 1)))
+                    .shadow(color: Theme.xpColors[1].opacity(0.6), radius: 8)
+            }
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(prefix + StrideFormat.coins(value))
+        .frame(height: height)
+        .animation(.spring(response: 0.6, dampingFraction: 0.85), value: fraction)
+    }
+}
+
+/// A pulsing green dot shown while steps are coming in live.
+struct LiveDot: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pulsing = false
+
+    var body: some View {
+        Circle()
+            .fill(Theme.live)
+            .frame(width: 7, height: 7)
+            .background {
+                Circle()
+                    .fill(Theme.live.opacity(0.5))
+                    .scaleEffect(pulsing ? 2.8 : 1)
+                    .opacity(pulsing ? 0 : 1)
+            }
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeOut(duration: 1.2).repeatForever(autoreverses: false)) {
+                    pulsing = true
+                }
+            }
     }
 }
 
@@ -81,45 +91,161 @@ struct StatTile<Icon: View>: View {
     @ViewBuilder var icon: Icon
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             icon
-                .font(.title3)
-                .frame(height: 22)
+                .font(.system(size: 17, weight: .semibold))
+                .frame(height: 20)
             Text(value)
-                .font(.title2.weight(.bold))
+                .font(.system(size: 22, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
+                .contentTransition(.numericText())
             Text(label)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .glass(radius: 20, padding: 14)
         .accessibilityElement(children: .combine)
     }
 }
 
-/// The round emblem for a badge: filled when earned, dashed outline when not.
+/// The shoe for a tier. Locked shoes show as a faint silhouette.
+struct ShoeImage: View {
+    let tier: Tier
+    var locked = false
+
+    var body: some View {
+        if locked {
+            Image(tier.imageName)
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(Color.white.opacity(0.10))
+                .accessibilityLabel("Locked shoe")
+        } else {
+            Image(tier.imageName)
+                .resizable()
+                .scaledToFit()
+                .accessibilityLabel("\(tier.name) shoe")
+        }
+    }
+}
+
+/// A shoe floating over its own glow, with a shadow on the floor.
+struct ShoeHero: View {
+    let tier: Tier
+    var height: CGFloat = 170
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var floating = false
+
+    var body: some View {
+        ZStack {
+            Ellipse()
+                .fill(RadialGradient(colors: [tier.color.opacity(0.55), .clear],
+                                     center: .center, startRadius: 0, endRadius: height * 1.1))
+                .frame(width: height * 2.4, height: height * 1.4)
+                .blur(radius: 24)
+            VStack(spacing: height * 0.02) {
+                ShoeImage(tier: tier)
+                    .frame(height: height)
+                    .offset(y: floating ? -6 : 4)
+                Ellipse()
+                    .fill(Color.black.opacity(0.7))
+                    .frame(width: height * 1.3, height: height * 0.08)
+                    .blur(radius: 8)
+                    .scaleEffect(floating ? 0.9 : 1)
+            }
+        }
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) {
+                floating = true
+            }
+        }
+    }
+}
+
+/// A small capsule with the current shoe and level.
+struct LevelChip: View {
+    let level: LevelProgress
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ShoeImage(tier: level.tier)
+                .frame(height: 18)
+            Text("Lv \(level.level)")
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 40)
+        .background(Color.white.opacity(0.08), in: Capsule())
+        .overlay(Capsule().strokeBorder(Theme.hairline, lineWidth: 1))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Level \(level.level), \(level.tier.name)")
+    }
+}
+
+/// Current level, shoe and XP toward the next level.
+struct LevelCard: View {
+    let level: LevelProgress
+
+    var body: some View {
+        HStack(spacing: 16) {
+            ShoeImage(tier: level.tier)
+                .frame(width: 96)
+                .shadow(color: level.tier.color.opacity(0.4), radius: 14)
+            VStack(alignment: .leading, spacing: 9) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Level \(level.level)")
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                    Spacer(minLength: 8)
+                    Text(level.tier.name.uppercased())
+                        .font(.system(size: 11, weight: .bold))
+                        .tracking(1.2)
+                        .foregroundStyle(level.tier.color)
+                        .lineLimit(1)
+                }
+                XPBar(fraction: level.fraction)
+                Text(level.isMaxLevel ? "Max level. Legendary." : "\(StrideFormat.xp(level.xpToNextLevel)) to level \(level.level + 1)")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.textSecondary)
+                    .monospacedDigit()
+            }
+        }
+        .glass()
+    }
+}
+
+/// The round emblem for a badge: glowing when earned, a dashed outline when not.
 struct BadgeEmblem: View {
     let badge: Badge
     let isUnlocked: Bool
-    var size: CGFloat = 56
+    var size: CGFloat = 58
 
     var body: some View {
         ZStack {
             if isUnlocked {
-                Circle().fill(Color.blaze.gradient)
+                Circle()
+                    .fill(LinearGradient(colors: Theme.ringColors, startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .shadow(color: Theme.ember.opacity(0.5), radius: size * 0.2)
+                Circle()
+                    .strokeBorder(Color.white.opacity(0.35), lineWidth: 1)
             } else {
-                Circle().fill(Color.secondary.opacity(0.1))
-                Circle().strokeBorder(Color.secondary.opacity(0.6), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                Circle()
+                    .fill(Color.white.opacity(0.05))
+                Circle()
+                    .strokeBorder(Color.white.opacity(0.2), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
             }
             Image(systemName: badge.symbol)
                 .font(.system(size: size * 0.4, weight: .semibold))
-                .foregroundStyle(isUnlocked ? Color.white : Color.secondary)
+                .foregroundStyle(isUnlocked ? Color.white : Theme.textTertiary)
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
@@ -130,25 +256,24 @@ struct BadgeTile: View {
     let progress: BadgeProgress
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             BadgeEmblem(badge: progress.badge, isUnlocked: progress.isUnlocked)
             Text(progress.badge.name)
                 .font(.caption.weight(.semibold))
+                .foregroundStyle(progress.isUnlocked ? Color.white : Theme.textSecondary)
                 .multilineTextAlignment(.center)
                 .lineLimit(2, reservesSpace: true)
             if progress.isUnlocked {
-                CoinAmount(value: progress.badge.bonus, prefix: "+", iconSize: 12)
+                Text("+\(StrideFormat.xp(progress.badge.xp))")
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.xpColors[0])
             } else {
-                ProgressView(value: progress.fraction)
-                    .tint(Color.blaze)
-                    .frame(height: 12)
+                XPBar(fraction: progress.fraction, height: 4)
+                    .padding(.horizontal, 6)
+                    .frame(height: 14)
             }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .glass(radius: 20, padding: 12)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
     }
@@ -162,9 +287,9 @@ struct SampleDataBanner: View {
     var body: some View {
         Label("Showing sample data. Turn it off in Settings.", systemImage: "eye")
             .font(.footnote.weight(.semibold))
-            .foregroundStyle(Color.frost)
+            .foregroundStyle(Theme.frost)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
-            .background(Color.frost.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(Theme.frost.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }

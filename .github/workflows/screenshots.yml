@@ -59,14 +59,12 @@ jobs:
             sleep 8
             xcrun simctl io "$UDID" screenshot "shots/$1.png"
           }
-          shoot 1-today today light
-          shoot 2-journey journey light
-          shoot 3-passport passport light
-          shoot 4-rewards rewards light
-          shoot 5-celebration celebration light
-          shoot 6-onboarding onboarding light
-          shoot 7-today-dark today dark
-          shoot 8-passport-dark passport dark
+          shoot 1-today today dark
+          shoot 2-locker locker dark
+          shoot 3-celebration celebration dark
+          shoot 4-journey journey dark
+          shoot 5-trophies trophies dark
+          shoot 6-onboarding onboarding dark
           ls -la shots
 
       - name: Push to the screenshots branch

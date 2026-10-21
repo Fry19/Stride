@@ -1,55 +1,193 @@
 import StrideCore
 import SwiftUI
-import UIKit
 
-extension Color {
-    /// Trail-blaze orange, the app's accent.
-    static let blaze = Color(light: 0xD4521D, dark: 0xFF7D45)
-    static let coin = Color(light: 0xB8860B, dark: 0xF2C14E)
-    static let pine = Color(light: 0x2F5D4A, dark: 0x8FC7AA)
-    static let frost = Color(light: 0x2C7BB6, dark: 0x7CC3F0)
+/// Stride's look: near-black backgrounds lit by the color of your current shoe,
+/// frosted glass panels, and warm gradients for progress.
+enum Theme {
+    static let background = Color(hex: 0x050507)
+    static let textSecondary = Color.white.opacity(0.62)
+    static let textTertiary = Color.white.opacity(0.38)
+    static let hairline = Color.white.opacity(0.09)
+
+    static let ember = Color(hex: 0xFF6A2B)
+    static let live = Color(hex: 0x3DFF8A)
+    static let frost = Color(hex: 0x7CC8FF)
+
+    /// Step ring before the goal is met.
+    static let ringColors = [Color(hex: 0xFFC247), Color(hex: 0xFF6A2B), Color(hex: 0xFF2E6E)]
+    /// Step ring once the goal is met.
+    static let goldColors = [Color(hex: 0xFFF1B0), Color(hex: 0xFFC94A), Color(hex: 0xF0962A)]
+    /// XP bars.
+    static let xpColors = [Color(hex: 0x7CF3FF), Color(hex: 0x8A7CFF), Color(hex: 0xFF6AD5)]
+    /// Buttons.
+    static let buttonColors = [Color(hex: 0xFF8A3D), Color(hex: 0xFF3D6E)]
 
     /// Ink colors for passport stamps.
-    static let stampInks: [Color] = [
-        Color(light: 0x2B59A8, dark: 0x8AABF2),
-        Color(light: 0xB3303A, dark: 0xF2858C),
-        Color(light: 0x2D7A53, dark: 0x72CC9E),
-        Color(light: 0x6B3FA0, dark: 0xBA97EE),
-    ]
+    static let stampInks = [Color(hex: 0x8AB0FF), Color(hex: 0xFF8A93), Color(hex: 0x72E0A6), Color(hex: 0xC59BFF)]
+}
+
+extension Color {
+    init(hex: UInt32, opacity: Double = 1) {
+        self.init(.sRGB,
+                  red: Double((hex >> 16) & 0xFF) / 255,
+                  green: Double((hex >> 8) & 0xFF) / 255,
+                  blue: Double(hex & 0xFF) / 255,
+                  opacity: opacity)
+    }
 
     static func route(_ id: String) -> Color {
         switch id {
-        case "inca": return Color(light: 0x9A4A2C, dark: 0xE08A68)
-        case "hadrian": return Color(light: 0x4A5D52, dark: 0xA3BDAE)
-        default: return Color(light: 0x1F4E8C, dark: 0x7FA8E6)
+        case "inca": return Color(hex: 0xFF8A5C)
+        case "hadrian": return Color(hex: 0x8FD3B0)
+        default: return Color(hex: 0x7FA8FF)
         }
-    }
-
-    init(light: UInt32, dark: UInt32) {
-        self.init(uiColor: UIColor { traits in
-            UIColor(hex: traits.userInterfaceStyle == .dark ? dark : light)
-        })
     }
 }
 
-extension UIColor {
-    convenience init(hex: UInt32) {
-        self.init(
-            red: CGFloat((hex >> 16) & 0xFF) / 255,
-            green: CGFloat((hex >> 8) & 0xFF) / 255,
-            blue: CGFloat(hex & 0xFF) / 255,
-            alpha: 1)
+extension Tier {
+    /// The glow color of this tier's shoe.
+    var color: Color {
+        switch number {
+        case 1: return Color(hex: 0xE8E8F0)
+        case 2: return Color(hex: 0x4D84FF)
+        case 3: return Color(hex: 0xFF8A3D)
+        case 4: return Color(hex: 0xC24DFF)
+        case 5: return Color(hex: 0xFF6A1F)
+        case 6: return Color(hex: 0xBFD3FF)
+        case 7: return Color(hex: 0xFFD25A)
+        case 8: return Color(hex: 0xB9C8FF)
+        case 9: return Color(hex: 0xFFD86B)
+        default: return Color(hex: 0x8C6BFF)
+        }
+    }
+
+    var imageName: String { "Shoe\(number)" }
+    var iconPreviewName: String { "IconPreview\(number)" }
+
+    var levelRange: String { "Levels \(firstLevel)–\(lastLevel)" }
+}
+
+// MARK: - Surfaces
+
+/// A frosted glass panel.
+struct Glass: ViewModifier {
+    var radius: CGFloat = 24
+    var padding: CGFloat = 18
+
+    func body(content: Content) -> some View {
+        content
+            .padding(padding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(LinearGradient(colors: [Color.white.opacity(0.085), Color.white.opacity(0.035)],
+                                         startPoint: .top, endPoint: .bottom))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .strokeBorder(LinearGradient(colors: [Color.white.opacity(0.16), Color.white.opacity(0.03)],
+                                                 startPoint: .top, endPoint: .bottom), lineWidth: 1)
+            }
     }
 }
 
 extension View {
-    /// The rounded panel used for sections on scrolling screens.
-    func card() -> some View {
-        padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    func glass(radius: CGFloat = 24, padding: CGFloat = 18) -> some View {
+        modifier(Glass(radius: radius, padding: padding))
     }
 }
+
+/// Black, lit from the top by `glow`.
+struct ScreenBackground: View {
+    var glow: Color
+
+    var body: some View {
+        ZStack {
+            Theme.background
+            RadialGradient(colors: [glow.opacity(0.30), .clear],
+                           center: UnitPoint(x: 0.5, y: -0.05), startRadius: 0, endRadius: 460)
+            RadialGradient(colors: [Theme.ember.opacity(0.10), .clear],
+                           center: UnitPoint(x: 1.05, y: 0.55), startRadius: 0, endRadius: 380)
+        }
+        .ignoresSafeArea()
+    }
+}
+
+struct SectionLabel: View {
+    let text: String
+
+    var body: some View {
+        Text(text.uppercased())
+            .font(.system(size: 12, weight: .semibold))
+            .tracking(1.6)
+            .foregroundStyle(Theme.textTertiary)
+    }
+}
+
+/// The title block at the top of each tab.
+struct ScreenHeader<Trailing: View>: View {
+    let eyebrow: String?
+    let title: String
+    @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 4) {
+                if let eyebrow {
+                    SectionLabel(text: eyebrow)
+                }
+                Text(title)
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+            Spacer()
+            trailing
+        }
+        .padding(.top, 8)
+    }
+}
+
+extension ScreenHeader where Trailing == EmptyView {
+    init(eyebrow: String?, title: String) {
+        self.init(eyebrow: eyebrow, title: title) { EmptyView() }
+    }
+}
+
+struct GlowButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 17, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 17)
+            .background(LinearGradient(colors: Theme.buttonColors, startPoint: .leading, endPoint: .trailing),
+                        in: Capsule())
+            .shadow(color: Theme.buttonColors[1].opacity(0.45), radius: 18, y: 8)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+}
+
+/// A round frosted button holding an SF Symbol.
+struct GlassIconButton: View {
+    let systemImage: String
+    let label: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 40, height: 40)
+                .background(Color.white.opacity(0.08), in: Circle())
+                .overlay(Circle().strokeBorder(Theme.hairline, lineWidth: 1))
+        }
+        .accessibilityLabel(label)
+    }
+}
+
+// MARK: - Formatting
 
 enum StrideFormat {
     static var usesMiles: Bool { Locale.current.measurementSystem == .us }
@@ -71,12 +209,8 @@ enum StrideFormat {
         day.startDate().formatted(.dateTime.weekday(.wide).month(.wide).day())
     }
 
-    static func coins(_ count: Int) -> String {
-        count == 1 ? "1 coin" : "\(count.formatted()) coins"
-    }
-
-    static func days(_ count: Int) -> String {
-        count == 1 ? "1 day" : "\(count.formatted()) days"
+    static func xp(_ amount: Int) -> String {
+        "\(amount.formatted()) XP"
     }
 }
 

@@ -5,101 +5,101 @@ import SwiftUI
 struct TodayView: View {
     @Environment(AppModel.self) private var model
     @State private var showingSettings = false
+    let openLocker: () -> Void
 
     var body: some View {
         let summary = model.summary
         let today = summary.todayResult
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    if model.showsSampleDataBanner {
-                        SampleDataBanner()
-                    }
-                    hero(today)
-                    HStack(spacing: 12) {
-                        StatTile(label: "Distance", value: StrideFormat.distance(meters: today.meters)) {
-                            Image(systemName: "figure.walk").foregroundStyle(Color.pine)
+        let level = summary.level
+        ScrollView {
+            VStack(spacing: 20) {
+                ScreenHeader(eyebrow: StrideFormat.longDate(today.day), title: "Today") {
+                    HStack(spacing: 10) {
+                        Button(action: openLocker) {
+                            LevelChip(level: level)
                         }
-                        StatTile(label: "Coins today", value: today.coins.formatted()) {
-                            CoinIcon(size: 20)
+                        GlassIconButton(systemImage: "gearshape.fill", label: "Settings") {
+                            showingSettings = true
                         }
-                        StatTile(label: streakLabel(summary), value: summary.currentStreak.formatted()) {
-                            Image(systemName: "flame.fill").foregroundStyle(Color.blaze)
-                        }
-                    }
-                    WeekChart(days: summary.lastDays(7))
-                    UpNextCard(summary: summary, rewards: model.state.rewards)
-                    if showsHealthHint(summary) {
-                        HealthHint()
                     }
                 }
-                .padding()
-            }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("Today")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingSettings = true
-                    } label: {
-                        Image(systemName: "gearshape")
+                if model.showsSampleDataBanner {
+                    SampleDataBanner()
+                }
+                hero(today)
+                Button(action: openLocker) {
+                    LevelCard(level: level)
+                }
+                .buttonStyle(.plain)
+                HStack(spacing: 12) {
+                    StatTile(label: "Distance", value: StrideFormat.distance(meters: today.meters)) {
+                        Image(systemName: "ruler.fill")
+                            .foregroundStyle(Theme.frost)
                     }
-                    .accessibilityLabel("Settings")
+                    StatTile(label: "XP today", value: today.xp.formatted()) {
+                        Image(systemName: "sparkles")
+                            .foregroundStyle(Theme.xpColors[0])
+                    }
+                    StatTile(label: streakLabel(summary), value: summary.currentStreak.formatted()) {
+                        Image(systemName: "flame.fill")
+                            .foregroundStyle(Theme.ember)
+                    }
+                }
+                WeekChart(days: summary.lastDays(7))
+                UpNextCard(summary: summary)
+                if showsHealthHint(summary) {
+                    HealthHint()
                 }
             }
-            .refreshable {
-                await model.refresh()
-            }
-            .sheet(isPresented: $showingSettings) {
-                SettingsView()
-            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 28)
         }
+        .scrollIndicators(.hidden)
+        .background(ScreenBackground(glow: level.tier.color))
+        .refreshable {
+            await model.refresh()
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
+        }
+        .sensoryFeedback(.success, trigger: today.goalMet)
     }
 
     private func hero(_ today: DayResult) -> some View {
         VStack(spacing: 18) {
-            Text(StrideFormat.longDate(today.day).uppercased())
-                .font(.caption.weight(.bold))
-                .tracking(1.2)
-                .foregroundStyle(.secondary)
             ZStack {
                 StepRing(steps: today.steps, goal: today.goal)
-                VStack(spacing: 0) {
+                    .frame(width: 280, height: 280)
+                VStack(spacing: 4) {
+                    LiveLabel(lastStep: model.lastLiveStep)
                     Text(today.steps.formatted())
-                        .font(.system(size: 60, weight: .black))
-                        .fontWidth(.compressed)
+                        .font(.system(size: 64, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white)
                         .monospacedDigit()
                         .contentTransition(.numericText(value: Double(today.steps)))
+                        .animation(.snappy(duration: 0.25), value: today.steps)
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
-                    Text("of \(today.goal.formatted()) steps")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    Text(today.goalMet ? "Goal reached" : "of \(today.goal.formatted())")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(today.goalMet ? Theme.goldColors[1] : Theme.textSecondary)
                 }
-                .padding(44)
+                .padding(.horizontal, 44)
             }
-            .frame(width: 250, height: 250)
             Text(statusLine(today))
-                .font(.subheadline.weight(.semibold))
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
         }
+        .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
-        .card()
-        .overlay(alignment: .topTrailing) {
-            if today.goalMet {
-                StampView(day: today.day, steps: today.steps, size: 78)
-                    .padding(12)
-                    .transition(.scale(scale: 1.6).combined(with: .opacity))
-            }
-        }
-        .animation(.spring(response: 0.35, dampingFraction: 0.55), value: today.goalMet)
     }
 
     private func statusLine(_ today: DayResult) -> String {
         if today.goalMet {
-            return "Goal met. Today's stamp is in your passport."
+            return "Stamp earned and +\(StrideFormat.xp(RewardRules.goalBonusXP)) goal bonus."
         }
-        return "\((today.goal - today.steps).formatted()) steps to today's stamp"
+        return "\((today.goal - today.steps).formatted()) steps to go for +\(StrideFormat.xp(RewardRules.goalBonusXP))"
     }
 
     private func streakLabel(_ summary: RewardSummary) -> String {
@@ -115,37 +115,55 @@ struct TodayView: View {
     }
 }
 
+/// "LIVE" with a pulsing dot while steps are coming in, otherwise "STEPS".
+private struct LiveLabel: View {
+    let lastStep: Date?
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 2)) { context in
+            let isLive = lastStep.map { context.date.timeIntervalSince($0) < 10 } ?? false
+            HStack(spacing: 6) {
+                if isLive {
+                    LiveDot()
+                }
+                Text(isLive ? "LIVE" : "STEPS")
+                    .font(.system(size: 11, weight: .bold))
+                    .tracking(1.6)
+                    .foregroundStyle(isLive ? Theme.live : Theme.textTertiary)
+            }
+            .animation(.easeInOut(duration: 0.3), value: isLive)
+        }
+    }
+}
+
 private struct WeekChart: View {
     let days: [DayResult]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Last 7 days")
-                    .font(.headline)
+                SectionLabel(text: "Last 7 days")
                 Spacer()
                 Text("\(days.reduce(0) { $0 + $1.steps }.formatted()) steps")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Theme.textSecondary)
                     .monospacedDigit()
             }
             Chart {
                 ForEach(days) { result in
                     BarMark(
                         x: .value("Day", result.day.startDate(), unit: .day),
-                        y: .value("Steps", result.steps))
-                        .foregroundStyle(result.goalMet ? Color.blaze : Color.blaze.opacity(0.3))
-                        .cornerRadius(5)
+                        y: .value("Steps", result.steps),
+                        width: .ratio(0.55))
+                        .foregroundStyle(result.goalMet
+                            ? AnyShapeStyle(LinearGradient(colors: Theme.ringColors.reversed(), startPoint: .bottom, endPoint: .top))
+                            : AnyShapeStyle(Color.white.opacity(0.16)))
+                        .cornerRadius(6)
                 }
                 if let goal = days.last?.goal {
                     RuleMark(y: .value("Goal", goal))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                        .foregroundStyle(Color.secondary)
-                        .annotation(position: .top, alignment: .leading) {
-                            Text("Goal")
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                        }
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                        .foregroundStyle(Color.white.opacity(0.35))
                 }
             }
             .chartXAxis {
@@ -153,54 +171,44 @@ private struct WeekChart: View {
                     AxisValueLabel(format: .dateTime.weekday(.narrow), centered: true)
                 }
             }
-            .chartYAxis {
-                AxisMarks(position: .trailing, values: .automatic(desiredCount: 3))
-            }
-            .frame(height: 170)
+            .chartYAxis(.hidden)
+            .frame(height: 150)
         }
-        .card()
+        .glass()
     }
 }
 
 private struct UpNextCard: View {
     let summary: RewardSummary
-    let rewards: [Reward]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Up next")
-                .font(.headline)
+            SectionLabel(text: "Up next")
+            if let next = summary.level.nextTier {
+                UpNextRow(title: "\(next.tier.name) shoe", detail: "\(StrideFormat.xp(next.xpNeeded)) to go") {
+                    ShoeImage(tier: next.tier, locked: true)
+                        .overlay(Image(systemName: "lock.fill").font(.system(size: 10)).foregroundStyle(Theme.textSecondary))
+                }
+            }
             if let stop = summary.journey.nextStop, let km = summary.journey.kmToNextStop {
                 UpNextRow(title: stop.name,
                           detail: "≈ \(StrideFormat.distance(km: km)) to go on the \(summary.journey.route.name)") {
-                    Image(systemName: "map.fill").foregroundStyle(Color.pine)
+                    Image(systemName: "mappin.and.ellipse")
+                        .foregroundStyle(Color.route(summary.journey.route.id))
                 }
             }
             if let badge = nextBadge {
                 UpNextRow(title: badge.badge.name, detail: badge.progressText) {
-                    Image(systemName: badge.badge.symbol).foregroundStyle(Color.blaze)
+                    Image(systemName: badge.badge.symbol)
+                        .foregroundStyle(Theme.ember)
                 }
             }
-            UpNextRow(title: rewardLine.title, detail: rewardLine.detail) {
-                CoinIcon(size: 20)
-            }
         }
-        .card()
+        .glass()
     }
 
     private var nextBadge: BadgeProgress? {
         summary.badges.filter { !$0.isUnlocked }.max { $0.fraction < $1.fraction }
-    }
-
-    private var rewardLine: (title: String, detail: String) {
-        let byCost = rewards.sorted { $0.cost < $1.cost }
-        if let affordable = byCost.last(where: { $0.cost <= summary.balance }) {
-            return (affordable.name, "You have enough coins. Redeem it in Rewards.")
-        }
-        if let next = byCost.first {
-            return (next.name, "\(StrideFormat.coins(next.cost - summary.balance)) to go")
-        }
-        return ("Pick a reward", "Add a treat in Rewards to save your coins for.")
     }
 }
 
@@ -212,14 +220,15 @@ private struct UpNextRow<Icon: View>: View {
     var body: some View {
         HStack(spacing: 14) {
             icon
-                .font(.title3)
-                .frame(width: 28)
+                .font(.system(size: 18, weight: .semibold))
+                .frame(width: 44, height: 30)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
                 Text(detail)
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.textSecondary)
             }
             Spacer(minLength: 0)
         }
@@ -232,10 +241,11 @@ private struct HealthHint: View {
         VStack(alignment: .leading, spacing: 8) {
             Label("No steps showing?", systemImage: "heart.text.square")
                 .font(.headline)
+                .foregroundStyle(.white)
             Text("Open the Health app, tap your profile picture, then Apps → Stride, and turn on Steps and Walking + Running Distance. Then pull down here to refresh.")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.textSecondary)
         }
-        .card()
+        .glass()
     }
 }

@@ -4,8 +4,7 @@ import XCTest
 final class RewardEngineTests: XCTestCase {
     let start = Day(year: 2026, month: 10, day: 1)
 
-    private func summarize(_ steps: [Int], goal: Int = 8_000, startOffset: Int = 0,
-                           redemptions: [Redemption] = []) -> RewardSummary {
+    private func summarize(_ steps: [Int], goal: Int = 8_000, startOffset: Int = 0) -> RewardSummary {
         let activity = steps.enumerated().map { offset, count in
             DayActivity(day: start.adding(days: offset), steps: count, meters: 0)
         }
@@ -13,8 +12,7 @@ final class RewardEngineTests: XCTestCase {
             activity: activity,
             startDay: start.adding(days: startOffset),
             today: start.adding(days: steps.count - 1),
-            goalChanges: [GoalChange(from: start, goal: goal)],
-            redemptions: redemptions))
+            goalChanges: [GoalChange(from: start, goal: goal)]))
     }
 
     func testDayArithmetic() {
@@ -34,17 +32,17 @@ final class RewardEngineTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode([Day].self, from: data), [day])
     }
 
-    func testCoinsAreOnePer100StepsPlusGoalBonus() {
+    func testXPIsOnePerStepPlusGoalBonus() {
         let summary = summarize([8_050, 4_999])
-        XCTAssertEqual(summary.days[0].coins, 80 + RewardRules.goalBonus)
-        XCTAssertEqual(summary.days[1].coins, 49)
-        XCTAssertEqual(summary.stepCoins, 80 + 25 + 49)
+        XCTAssertEqual(summary.days[0].xp, 8_050 + RewardRules.goalBonusXP)
+        XCTAssertEqual(summary.days[1].xp, 4_999)
+        XCTAssertEqual(summary.stepXP, 8_050 + 1_500 + 4_999)
     }
 
     func testDaysBeforeStartEarnNothing() {
         let summary = summarize([12_000, 12_000, 3_000], startOffset: 2)
         XCTAssertEqual(summary.days.map(\.status), [.beforeStart, .beforeStart, .inProgress])
-        XCTAssertEqual(summary.stepCoins, 30)
+        XCTAssertEqual(summary.stepXP, 3_000)
         XCTAssertEqual(summary.lifetimeSteps, 3_000)
         XCTAssertEqual(summary.currentStreak, 0)
     }
@@ -85,21 +83,65 @@ final class RewardEngineTests: XCTestCase {
         XCTAssertEqual(RewardEngine.goal(for: start, changes: []), RewardRules.defaultGoal)
     }
 
-    func testBadgesUnlockOnTheDayTheyAreEarnedAndPayABonus() {
+    func testBadgesUnlockOnTheDayTheyAreEarnedAndGiveXP() {
         let summary = summarize([3_000, 10_500])
         let unlocked = Dictionary(uniqueKeysWithValues: summary.badges.map { ($0.badge.id, $0.unlockedOn) })
         XCTAssertEqual(unlocked["first-steps"], start)
         XCTAssertEqual(unlocked["goal-getter"], start.adding(days: 1))
         XCTAssertEqual(unlocked["10k-club"], start.adding(days: 1))
         XCTAssertEqual(unlocked["hat-trick"], .some(nil))
-        XCTAssertEqual(summary.badgeCoins, 10 + 25 + 50)
+        XCTAssertEqual(summary.badgeXP, 200 + 500 + 1_000)
+        XCTAssertEqual(summary.totalXP, summary.stepXP + summary.badgeXP)
     }
 
-    func testBalanceSubtractsRedemptions() {
-        let spend = Redemption(rewardName: "Coffee", cost: 100, date: Date())
-        let summary = summarize([20_000], redemptions: [spend])
-        XCTAssertEqual(summary.spentCoins, 100)
-        XCTAssertEqual(summary.balance, summary.stepCoins + summary.badgeCoins - 100)
+    func testLevelThresholds() {
+        XCTAssertEqual(Levels.xpRequired(for: 1), 0)
+        XCTAssertEqual(Levels.xpRequired(for: 2), 2_000)
+        XCTAssertEqual(Levels.xpRequired(for: 6), 50_000)
+        XCTAssertEqual(Levels.level(forXP: 0), 1)
+        XCTAssertEqual(Levels.level(forXP: 1_999), 1)
+        XCTAssertEqual(Levels.level(forXP: 2_000), 2)
+        XCTAssertEqual(Levels.level(forXP: 50_000), 6)
+        XCTAssertEqual(Levels.level(forXP: 100_000_000), Levels.maxLevel)
+    }
+
+    func testTiersCoverFiveLevelsEach() {
+        XCTAssertEqual(Levels.tiers.count, 10)
+        XCTAssertEqual(Levels.tier(forLevel: 1).number, 1)
+        XCTAssertEqual(Levels.tier(forLevel: 5).number, 1)
+        XCTAssertEqual(Levels.tier(forLevel: 6).number, 2)
+        XCTAssertEqual(Levels.tier(forLevel: 50).number, 10)
+        XCTAssertEqual(Levels.tiers[1].firstLevel, 6)
+        XCTAssertEqual(Levels.tiers[1].lastLevel, 10)
+    }
+
+    func testLevelProgress() {
+        let progress = LevelProgress(xp: 5_000)
+        XCTAssertEqual(progress.level, 2)
+        XCTAssertEqual(progress.xpIntoLevel, 3_000)
+        XCTAssertEqual(progress.xpForLevel, 6_000)
+        XCTAssertEqual(progress.xpToNextLevel, 5_000)
+        XCTAssertEqual(progress.fraction, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(progress.nextTier?.tier.number, 2)
+        XCTAssertEqual(progress.nextTier?.xpNeeded, 45_000)
+
+        let maxed = LevelProgress(xp: 100_000_000)
+        XCTAssertTrue(maxed.isMaxLevel)
+        XCTAssertEqual(maxed.fraction, 1)
+        XCTAssertNil(maxed.nextTier)
+    }
+
+    func testLevelUpsAreUnlockedOnTheDayTheyHappen() {
+        // Day 0: 3,000 steps + 200 badge XP = 3,200 XP, level 2.
+        // Day 1: +9,000 steps + 1,500 goal bonus + 500 + 0 badge XP = 14,200 XP, level 3.
+        let summary = summarize([3_000, 9_000])
+        let levelUps = summary.unlocks.compactMap { unlock -> (Int, Day)? in
+            if case .levelUp(let level, let day) = unlock.kind { return (level, day) }
+            return nil
+        }
+        XCTAssertEqual(levelUps.map { $0.0 }, [2, 3])
+        XCTAssertEqual(levelUps.map { $0.1 }, [start, start.adding(days: 1)])
+        XCTAssertEqual(summary.level.level, 3)
     }
 
     func testJourneyReachesStopsAndMovesToTheNextRoute() {
@@ -107,7 +149,7 @@ final class RewardEngineTests: XCTestCase {
         let activity = [DayActivity(day: start, steps: 50_000, meters: 44_000)]
         let summary = RewardEngine.summarize(RewardInput(
             activity: activity, startDay: start, today: start,
-            goalChanges: [GoalChange(from: start, goal: 8_000)], redemptions: []))
+            goalChanges: [GoalChange(from: start, goal: 8_000)]))
         let journey = summary.journey
         XCTAssertEqual(journey.route.id, "hadrian")
         XCTAssertEqual(journey.kmIntoRoute, 1, accuracy: 0.001)

@@ -7,12 +7,12 @@ struct SavedState: Codable {
     var startDay: Day
     var hasOnboarded = false
     var goalChanges: [GoalChange] = []
-    var rewards: [Reward] = []
-    var redemptions: [Redemption] = []
     var activity: [DayActivity] = []
     /// Ids of unlocks already celebrated.
     var celebrated: Set<String> = []
     var useSampleData = false
+    /// The tier whose app icon the user picked, or nil to match their tier automatically.
+    var iconTier: Int?
 
     init(startDay: Day) {
         self.startDay = startDay
@@ -24,11 +24,10 @@ struct SavedState: Codable {
         startDay = try container.decode(Day.self, forKey: .startDay)
         hasOnboarded = try container.decodeIfPresent(Bool.self, forKey: .hasOnboarded) ?? false
         goalChanges = try container.decodeIfPresent([GoalChange].self, forKey: .goalChanges) ?? []
-        rewards = try container.decodeIfPresent([Reward].self, forKey: .rewards) ?? []
-        redemptions = try container.decodeIfPresent([Redemption].self, forKey: .redemptions) ?? []
         activity = try container.decodeIfPresent([DayActivity].self, forKey: .activity) ?? []
         celebrated = try container.decodeIfPresent(Set<String>.self, forKey: .celebrated) ?? []
         useSampleData = try container.decodeIfPresent(Bool.self, forKey: .useSampleData) ?? false
+        iconTier = try container.decodeIfPresent(Int.self, forKey: .iconTier)
     }
 }
 

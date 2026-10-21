@@ -16,7 +16,7 @@ struct SettingsView: View {
                             Spacer()
                             Text("\(goal.formatted()) steps")
                                 .monospacedDigit()
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Theme.textSecondary)
                         }
                     }
                 } footer: {
@@ -24,23 +24,26 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    LabeledContent("Rewards counted since", value: StrideFormat.date(model.state.startDay))
+                    LabeledContent("XP counted since", value: StrideFormat.date(model.state.startDay))
                     if let error = model.healthError {
                         Text("Apple Health couldn't be read: \(error)")
-                            .foregroundStyle(Color.blaze)
+                            .foregroundStyle(Theme.ember)
                     }
                 } header: {
                     Text("Step data")
                 } footer: {
-                    Text("Stride reads steps from Apple Health and updates them live from your iPhone's motion sensor. Steps typed into Health by hand don't count. If steps aren't showing, open the Health app, tap your profile picture, then Apps → Stride.")
+                    Text("Stride reads steps from Apple Health and counts new ones live from your iPhone's motion sensors while the app is open. Steps typed into Health by hand don't count. If steps aren't showing, open the Health app, tap your profile picture, then Apps → Stride.")
                 }
 
                 Section {
                     Toggle("Show sample data", isOn: sampleData)
+                        .tint(Theme.ember)
                 } footer: {
                     Text("Fills Stride with 60 days of made-up walking so you can look around, for example in the simulator. Your real data comes back when you turn it off.")
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.background)
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -57,6 +60,7 @@ struct SettingsView: View {
                 }
             }
         }
+        .presentationBackground(Theme.background)
     }
 
     private var sampleData: Binding<Bool> {

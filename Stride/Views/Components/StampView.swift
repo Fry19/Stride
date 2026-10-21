@@ -8,7 +8,7 @@ struct StampView: View {
     var size: CGFloat = 96
 
     private var ink: Color {
-        Color.stampInks[(day.year * 372 + day.month * 31 + day.day) % Color.stampInks.count]
+        Theme.stampInks[(day.year * 372 + day.month * 31 + day.day) % Theme.stampInks.count]
     }
 
     private var tilt: Double {
@@ -71,12 +71,12 @@ struct StampPlaceholder: View {
 
     var body: some View {
         Circle()
-            .strokeBorder(Color.secondary.opacity(0.5), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+            .strokeBorder(Color.white.opacity(0.2), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
             .frame(width: size, height: size)
             .overlay {
                 Image(systemName: "seal")
                     .font(.system(size: size * 0.3))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Theme.textTertiary)
             }
     }
 }

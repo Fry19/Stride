@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum AppTab: String {
-    case today, journey, passport, rewards
+    case today, journey, locker, trophies
 }
 
 struct RootView: View {
@@ -13,26 +13,29 @@ struct RootView: View {
         Group {
             if model.state.hasOnboarded {
                 TabView(selection: $tab) {
-                    TodayView()
+                    TodayView { tab = .locker }
                         .tabItem { Label("Today", systemImage: "figure.walk") }
                         .tag(AppTab.today)
                     JourneyView()
-                        .tabItem { Label("Journey", systemImage: "map") }
+                        .tabItem { Label("Journey", systemImage: "map.fill") }
                         .tag(AppTab.journey)
-                    PassportView()
-                        .tabItem { Label("Passport", systemImage: "seal") }
-                        .tag(AppTab.passport)
-                    RewardsView()
-                        .tabItem { Label("Rewards", systemImage: "gift") }
-                        .tag(AppTab.rewards)
+                    LockerView()
+                        .tabItem { Label("Locker", systemImage: "shoe.fill") }
+                        .tag(AppTab.locker)
+                    TrophiesView()
+                        .tabItem { Label("Trophies", systemImage: "trophy.fill") }
+                        .tag(AppTab.trophies)
                 }
+                .toolbarBackground(Theme.background.opacity(0.92), for: .tabBar)
+                .toolbarBackground(.visible, for: .tabBar)
             } else {
                 OnboardingView()
             }
         }
-        .tint(Color.blaze)
-        .sheet(isPresented: showingCelebration) {
-            CelebrationView(unlocks: model.celebration) {
+        .tint(Theme.ember)
+        .preferredColorScheme(.dark)
+        .fullScreenCover(isPresented: showingCelebration) {
+            CelebrationView(unlocks: model.celebration, level: model.summary.level) {
                 model.finishCelebration()
             }
         }
