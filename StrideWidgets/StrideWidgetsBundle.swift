@@ -4,6 +4,6 @@ import WidgetKit
 @main
 struct StrideWidgetsBundle: WidgetBundle {
     var body: some Widget {
-        WalkLiveActivity()
+        StrideLiveActivity()
     }
 }

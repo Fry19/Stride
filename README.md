@@ -20,7 +20,9 @@ Stride reads your steps from Apple Health and counts new ones live while the app
 
 XP counts from the day you set the app up. Steps typed into the Health app by hand don't count.
 
-**Walk mode:** tap Start a walk to track one walk's steps, distance, pace and GPS route. It keeps counting with the phone locked, shows a Live Activity on the Lock Screen and in the Dynamic Island, and saves the walk with its route map when you finish.
+**Steps in the Dynamic Island:** a Live Activity shows today's steps and your goal ring on the Lock Screen and in the Dynamic Island. It updates live while Stride is open or you're on a walk, and every so often in the background when iOS gives the app time (iOS decides how often). iOS ends Live Activities after 8 hours; opening Stride starts it again. You can turn it off in Settings.
+
+**Walk mode:** tap Start a walk to track one walk's steps, distance, pace and GPS route. It keeps counting with the phone locked, adds the walk's timer and steps to the Live Activity, and saves the walk with its route map when you finish.
 
 **Race your past self:** Today compares your steps so far with yesterday, and with your best day this week, at the same time of day.
 

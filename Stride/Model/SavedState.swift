@@ -15,6 +15,8 @@ struct SavedState: Codable {
     var iconTier: Int?
     /// XP from completed quests.
     var bonuses: [BonusXP] = []
+    /// Today's steps on the Lock Screen and in the Dynamic Island.
+    var showsLiveActivity = true
 
     init(startDay: Day) {
         self.startDay = startDay
@@ -31,6 +33,7 @@ struct SavedState: Codable {
         useSampleData = try container.decodeIfPresent(Bool.self, forKey: .useSampleData) ?? false
         iconTier = try container.decodeIfPresent(Int.self, forKey: .iconTier)
         bonuses = try container.decodeIfPresent([BonusXP].self, forKey: .bonuses) ?? []
+        showsLiveActivity = try container.decodeIfPresent(Bool.self, forKey: .showsLiveActivity) ?? true
     }
 }
 

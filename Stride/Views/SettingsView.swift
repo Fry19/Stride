@@ -24,6 +24,13 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Toggle("Steps in Dynamic Island", isOn: liveActivity)
+                        .tint(Theme.ember)
+                } footer: {
+                    Text("Shows today's steps on the Lock Screen and in the Dynamic Island. They update live while Stride is open or you're on a walk, and every so often in the background when iOS allows it. iOS ends it after 8 hours; opening Stride starts it again.")
+                }
+
+                Section {
                     LabeledContent("XP counted since", value: StrideFormat.date(model.state.startDay))
                     if let error = model.healthError {
                         Text("Apple Health couldn't be read: \(error)")
@@ -61,6 +68,10 @@ struct SettingsView: View {
             }
         }
         .presentationBackground(Theme.background)
+    }
+
+    private var liveActivity: Binding<Bool> {
+        Binding(get: { model.state.showsLiveActivity }, set: { model.setShowsLiveActivity($0) })
     }
 
     private var sampleData: Binding<Bool> {

@@ -9,5 +9,9 @@ struct StrideApp: App {
             RootView()
                 .environment(model)
         }
+        .backgroundTask(.appRefresh(BackgroundRefresh.identifier)) {
+            BackgroundRefresh.schedule()
+            await model.backgroundRefresh()
+        }
     }
 }

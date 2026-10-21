@@ -1,4 +1,3 @@
-import ActivityKit
 import CoreLocation
 import CoreMotion
 import Foundation
@@ -40,9 +39,8 @@ enum WalkStore {
     }
 }
 
-/// Tracks one walk at a time: steps from the pedometer, distance and route from GPS, and a
-/// Live Activity on the Lock Screen. Location keeps running in the background so the walk
-/// keeps counting with the phone locked.
+/// Tracks one walk at a time: steps from the pedometer, distance and route from GPS.
+/// Location keeps running in the background so the walk keeps counting with the phone locked.
 @MainActor
 @Observable
 final class WalkController: NSObject, CLLocationManagerDelegate {
@@ -63,9 +61,6 @@ final class WalkController: NSObject, CLLocationManagerDelegate {
     /// Today's displayed steps when the walk began, so live steps can be counted before the pedometer reports.
     @ObservationIgnored private var todayStepsAtStart = 0
     @ObservationIgnored private var todaySteps = 0
-    @ObservationIgnored private var goal = 8_000
-    @ObservationIgnored private var activity: Activity<WalkActivityAttributes>?
-    @ObservationIgnored private var activityUpdatedAt = Date.distantPast
 
     override init() {
         super.init()
@@ -75,7 +70,7 @@ final class WalkController: NSObject, CLLocationManagerDelegate {
         locationManager.distanceFilter = 5
     }
 
-    func start(todaySteps: Int, goal: Int, level: Int) {
+    func start(todaySteps: Int) {
         guard !isActive else { return }
         let now = Date()
         startDate = now
@@ -88,7 +83,6 @@ final class WalkController: NSObject, CLLocationManagerDelegate {
         lastLocation = nil
         todayStepsAtStart = todaySteps
         self.todaySteps = todaySteps
-        self.goal = goal
 
         switch locationManager.authorizationStatus {
         case .notDetermined:
@@ -111,7 +105,6 @@ final class WalkController: NSObject, CLLocationManagerDelegate {
                 Task { @MainActor in self?.applyPedometer(steps: steps, meters: meters) }
             }
         }
-        startActivity(level: level)
     }
 
     /// Ends the walk and returns it, or nil if it was too short to keep.
@@ -123,7 +116,6 @@ final class WalkController: NSObject, CLLocationManagerDelegate {
         let end = Date()
         let walk = Walk(id: UUID(), start: startDate, end: end, steps: steps, meters: meters,
                         route: Self.simplified(route).map { Walk.Point(latitude: $0.latitude, longitude: $0.longitude) })
-        endActivity()
         self.startDate = nil
         return end.timeIntervalSince(startDate) >= 60 || steps >= 50 ? walk : nil
     }
@@ -146,7 +138,6 @@ final class WalkController: NSObject, CLLocationManagerDelegate {
         steps = max(steps, pedometerSteps, todaySteps - todayStepsAtStart)
         // GPS is the better measure of distance outdoors; the pedometer covers indoors and gaps.
         meters = max(gpsMeters, pedometerMeters)
-        updateActivityIfDue()
     }
 
     // MARK: - Location
@@ -193,35 +184,8 @@ final class WalkController: NSObject, CLLocationManagerDelegate {
         return kept
     }
 
-    // MARK: - Live Activity
-
-    private var activityState: WalkActivityAttributes.ContentState {
-        WalkActivityAttributes.ContentState(
-            steps: steps, meters: meters, todaySteps: max(todaySteps, todayStepsAtStart + steps), goal: goal,
-            usesMiles: Locale.current.measurementSystem == .us)
-    }
-
-    private func startActivity(level: Int) {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled, let startDate else { return }
-        let attributes = WalkActivityAttributes(startedAt: startDate, level: level)
-        activity = try? Activity.request(attributes: attributes,
-                                         content: ActivityContent(state: activityState, staleDate: nil),
-                                         pushType: nil)
-        activityUpdatedAt = Date()
-    }
-
-    /// Updates at most every few seconds; the timer on the Lock Screen runs on its own.
-    private func updateActivityIfDue() {
-        guard let activity, Date().timeIntervalSince(activityUpdatedAt) >= 4 else { return }
-        activityUpdatedAt = Date()
-        let content = ActivityContent(state: activityState, staleDate: nil)
-        Task { await activity.update(content) }
-    }
-
-    private func endActivity() {
-        guard let activity else { return }
-        let content = ActivityContent(state: activityState, staleDate: nil)
-        self.activity = nil
-        Task { await activity.end(content, dismissalPolicy: .after(Date().addingTimeInterval(15 * 60))) }
+    /// The walk in progress, for the Live Activity.
+    var activityInfo: StrideActivityAttributes.ContentState.Walk? {
+        startDate.map { StrideActivityAttributes.ContentState.Walk(startedAt: $0, steps: steps, meters: meters) }
     }
 }

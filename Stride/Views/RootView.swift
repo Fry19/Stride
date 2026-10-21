@@ -52,6 +52,7 @@ struct RootView: View {
                     model.stopLiveUpdates()
                 }
                 model.save()
+                BackgroundRefresh.schedule()
             default:
                 break
             }

@@ -21,6 +21,7 @@ final class AppModel {
     private(set) var walks: [Walk] = []
     /// The walk in progress, if any.
     let walk = WalkController()
+    @ObservationIgnored private let liveActivity = LiveActivityManager()
 
     @ObservationIgnored private let health = HealthSource()
     @ObservationIgnored private let motion = MotionSource()
@@ -212,8 +213,9 @@ final class AppModel {
 
     func startWalk() {
         let today = summary.todayResult
-        walk.start(todaySteps: today.steps, goal: today.goal, level: summary.level.level)
+        walk.start(todaySteps: today.steps)
         startLiveUpdates()
+        updateLiveActivity(force: true)
     }
 
     /// Ends the walk in progress and returns it if it was long enough to keep.
@@ -223,6 +225,7 @@ final class AppModel {
         walks.insert(finished, at: 0)
         if !ScreenshotMode.isActive { WalkStore.save(walks) }
         recompute()
+        updateLiveActivity(force: true)
         return finished
     }
 
@@ -306,6 +309,48 @@ final class AppModel {
         recompute()
     }
 
+    // MARK: - Live Activity
+
+    private var liveActivityState: StrideActivityAttributes.ContentState {
+        let today = summary.todayResult
+        return StrideActivityAttributes.ContentState(
+            todaySteps: today.steps, goal: today.goal, level: summary.level.level,
+            usesMiles: StrideFormat.usesMiles, walk: walk.activityInfo)
+    }
+
+    /// Today's steps in the Dynamic Island, if turned on, or the walk in progress either way.
+    private func updateLiveActivity(force: Bool = false) {
+        guard state.hasOnboarded, !state.useSampleData, !ScreenshotMode.isActive else { return }
+        if state.showsLiveActivity || walk.isActive {
+            liveActivity.show(liveActivityState, force: force)
+        } else {
+            liveActivity.end()
+        }
+    }
+
+    func setShowsLiveActivity(_ on: Bool) {
+        state.showsLiveActivity = on
+        save()
+        updateLiveActivity(force: true)
+    }
+
+    /// Runs when iOS wakes the app in the background: reads today's steps and updates the Live Activity.
+    func backgroundRefresh() async {
+        guard state.hasOnboarded, !state.useSampleData else { return }
+        let today = Day(Date())
+        var fetched = await motion.dailyTotals(lastDays: 1, endingOn: today)
+        // Health can't be read while the phone is locked, so this often fails quietly.
+        if let fromHealth = try? await health.dailyTotals(from: today, through: today) {
+            fetched += fromHealth
+        }
+        merge(fetched)
+        save()
+        recompute()
+        if state.showsLiveActivity || walk.isActive {
+            await liveActivity.showNow(liveActivityState)
+        }
+    }
+
     func setUseSampleData(_ on: Bool) {
         state.useSampleData = on
         save()
@@ -350,6 +395,7 @@ final class AppModel {
             summary = Self.makeSummary(for: state, live: live, today: today)
         }
         walk.noteTodaySteps(summary.todayResult.steps)
+        updateLiveActivity()
         guard state.hasOnboarded, !state.useSampleData else { return }
         let showing = Set(celebration.map(\.id))
         let fresh = summary.unlocks.filter { !state.celebrated.contains($0.id) && !showing.contains($0.id) }
