@@ -19,7 +19,8 @@ enum WalkIntents {
 }
 
 /// Starts a walk and opens Stride on it. Works from Siri, Shortcuts, the Action Button and Control Center.
-struct StartWalkIntent: AppIntent {
+/// A Live Activity intent, so iOS always runs it in the app, even when Control Center triggers it.
+struct StartWalkIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Start a Walk"
     static let openAppWhenRun = true
 
