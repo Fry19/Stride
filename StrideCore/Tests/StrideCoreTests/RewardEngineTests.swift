@@ -156,6 +156,13 @@ final class RewardEngineTests: XCTestCase {
         XCTAssertEqual(journey.nextStop?.id, "hadrian.newcastle")
         XCTAssertEqual(journey.reached.map(\.stop.id).suffix(2), ["inca.machupicchu", "hadrian.wallsend"])
         XCTAssertFalse(journey.isComplete)
+
+        // 1 km of the 7 between Wallsend and Newcastle.
+        let wallsend = Journeys.routes[1].stops[0], newcastle = Journeys.routes[1].stops[1]
+        XCTAssertEqual(journey.coordinate.latitude,
+                       wallsend.latitude + (newcastle.latitude - wallsend.latitude) / 7, accuracy: 0.0001)
+        XCTAssertEqual(journey.coordinate.longitude,
+                       wallsend.longitude + (newcastle.longitude - wallsend.longitude) / 7, accuracy: 0.0001)
     }
 
     func testMissingDistanceFallsBackToStride() {

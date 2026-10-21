@@ -85,6 +85,18 @@ public struct JourneyProgress: Hashable {
     public func reachedStop(_ stop: Stop) -> ReachedStop? {
         reached.first { $0.stop.id == stop.id }
     }
+
+    /// Where you are on the map: between the last stop reached and the next, by distance.
+    public var coordinate: (latitude: Double, longitude: Double) {
+        let stops = route.stops
+        for (from, to) in zip(stops, stops.dropFirst()) where kmIntoRoute <= to.km {
+            let fraction = to.km > from.km ? max(0, kmIntoRoute - from.km) / (to.km - from.km) : 0
+            return (from.latitude + (to.latitude - from.latitude) * fraction,
+                    from.longitude + (to.longitude - from.longitude) * fraction)
+        }
+        let last = stops.last
+        return (last?.latitude ?? 0, last?.longitude ?? 0)
+    }
 }
 
 /// Something newly earned, for the celebration screen. `id` is stable so the app

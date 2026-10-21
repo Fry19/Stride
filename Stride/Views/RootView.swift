@@ -47,7 +47,10 @@ struct RootView: View {
             case .active:
                 Task { await model.refresh() }
             case .background:
-                model.stopLiveUpdates()
+                // A walk keeps counting with the phone locked.
+                if !model.walk.isActive {
+                    model.stopLiveUpdates()
+                }
                 model.save()
             default:
                 break

@@ -4,6 +4,7 @@ import SwiftUI
 struct JourneyView: View {
     @Environment(AppModel.self) private var model
     @State private var openPostcard: ReachedStop?
+    @State private var showingMap = false
 
     var body: some View {
         let journey = model.summary.journey
@@ -11,6 +12,29 @@ struct JourneyView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 ScreenHeader(eyebrow: "\(journey.reached.count) postcards collected", title: "Journey")
+                Button {
+                    showingMap = true
+                } label: {
+                    JourneyMap(journey: journey)
+                        .frame(height: 230)
+                        .allowsHitTesting(false)
+                        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                        .overlay(alignment: .bottomTrailing) {
+                            Label("Explore", systemImage: "arrow.up.left.and.arrow.down.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 7)
+                                .background(.ultraThinMaterial, in: Capsule())
+                                .padding(12)
+                        }
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                                .strokeBorder(Theme.hairline, lineWidth: 1)
+                        }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Open the map of the \(journey.route.name)")
                 RouteHero(journey: journey)
 
                 VStack(alignment: .leading, spacing: 0) {
@@ -61,10 +85,20 @@ struct JourneyView: View {
         .scrollIndicators(.hidden)
         .background(ScreenBackground(glow: color))
         .sheet(item: $openPostcard) { reached in
-            PostcardView(reached: reached)
+            ScrollView {
+                VStack(spacing: 16) {
+                    StopPlaceView(stop: reached.stop)
+                        .frame(height: 260)
+                        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    PostcardView(reached: reached)
+                }
                 .padding(20)
-                .presentationDetents([.medium])
-                .presentationBackground(Theme.background)
+            }
+            .presentationDetents([.large])
+            .presentationBackground(Theme.background)
+        }
+        .fullScreenCover(isPresented: $showingMap) {
+            JourneyMapScreen(journey: journey)
         }
     }
 }

@@ -17,6 +17,10 @@ final class AppModel {
     private(set) var race: RaceStatus?
     /// Today's quests and how far along each one is.
     private(set) var quests: [QuestProgress] = []
+    /// Finished walks, newest first.
+    private(set) var walks: [Walk] = []
+    /// The walk in progress, if any.
+    let walk = WalkController()
 
     @ObservationIgnored private let health = HealthSource()
     @ObservationIgnored private let motion = MotionSource()
@@ -39,6 +43,7 @@ final class AppModel {
             ? ScreenshotMode.state(today: today)
             : StateStore.load() ?? SavedState(startDay: today)
         self.state = state
+        self.walks = ScreenshotMode.isActive ? SampleData.walks(endingOn: today) : WalkStore.load()
         self.summary = Self.makeSummary(for: state, live: nil, today: today)
         self.celebration = ScreenshotMode.celebration(from: summary)
         if state.useSampleData {
@@ -173,7 +178,7 @@ final class AppModel {
             goal: todayResult.goal,
             yesterdaySteps: summary.result(for: today.adding(days: -1))?.steps ?? 0,
             windowSteps: questWindowSteps,
-            longestWalkMinutes: 0)
+            longestWalkMinutes: longestWalkMinutesToday())
         quests = Quests.forDay(today).map { QuestProgress(quest: $0, state: Quests.state(of: $0, in: context)) }
 
         guard state.hasOnboarded, !state.useSampleData, !ScreenshotMode.isActive else { return false }
@@ -201,6 +206,37 @@ final class AppModel {
         detector.start { [weak self] in
             Task { @MainActor in self?.applyDetectedStep() }
         }
+    }
+
+    // MARK: - Walks
+
+    func startWalk() {
+        let today = summary.todayResult
+        walk.start(todaySteps: today.steps, goal: today.goal, level: summary.level.level)
+        startLiveUpdates()
+    }
+
+    /// Ends the walk in progress and returns it if it was long enough to keep.
+    @discardableResult
+    func finishWalk() -> Walk? {
+        guard let finished = walk.finish() else { return nil }
+        walks.insert(finished, at: 0)
+        if !ScreenshotMode.isActive { WalkStore.save(walks) }
+        recompute()
+        return finished
+    }
+
+    func deleteWalk(_ walk: Walk) {
+        walks.removeAll { $0.id == walk.id }
+        WalkStore.save(walks)
+    }
+
+    /// Longest walk today in minutes, counting one still in progress.
+    private func longestWalkMinutesToday() -> Int {
+        let today = Day(Date())
+        let finished = walks.filter { Day($0.start) == today }.map(\.minutes).max() ?? 0
+        let current = walk.startDate.map { Int(Date().timeIntervalSince($0) / 60) } ?? 0
+        return max(finished, current)
     }
 
     func stopLiveUpdates() {
@@ -313,6 +349,7 @@ final class AppModel {
         if awardCompletedQuests() {
             summary = Self.makeSummary(for: state, live: live, today: today)
         }
+        walk.noteTodaySteps(summary.todayResult.steps)
         guard state.hasOnboarded, !state.useSampleData else { return }
         let showing = Set(celebration.map(\.id))
         let fresh = summary.unlocks.filter { !state.celebrated.contains($0.id) && !showing.contains($0.id) }

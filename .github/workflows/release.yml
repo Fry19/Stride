@@ -42,8 +42,9 @@ jobs:
         run: |
           mkdir Payload
           cp -R build/Stride.xcarchive/Products/Applications/Stride.app Payload/
-          # An ad-hoc signature carrying the HealthKit entitlement. Sideloading tools
-          # replace it with a signature from your Apple ID.
+          # Ad-hoc signatures, the app's carrying the HealthKit entitlement. Sideloading
+          # tools replace them with signatures from your Apple ID.
+          codesign --force --sign - Payload/Stride.app/PlugIns/StrideWidgets.appex
           codesign --force --sign - --entitlements Config/Stride.entitlements Payload/Stride.app
           codesign --display --entitlements - Payload/Stride.app
           zip -qry "Stride_${TAG#v}.ipa" Payload

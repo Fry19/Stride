@@ -20,4 +20,19 @@ enum SampleData {
         }
         return (start, activity)
     }
+
+    /// Two made-up walks around the Central Park Reservoir in New York.
+    static func walks(endingOn today: Day) -> [Walk] {
+        let center = (latitude: 40.7829, longitude: -73.9626)
+        let loop = (0...48).map { index -> Walk.Point in
+            let angle = Double(index) / 48 * 2 * .pi
+            return Walk.Point(latitude: center.latitude + 0.0042 * sin(angle),
+                              longitude: center.longitude + 0.0036 * cos(angle))
+        }
+        return [(1, 9.5, 3_412, 2_520.0), (3, 18.25, 5_160, 3_890.0)].map { daysAgo, hour, steps, meters in
+            let start = today.adding(days: -daysAgo).startDate().addingTimeInterval(hour * 3600)
+            return Walk(id: UUID(), start: start, end: start.addingTimeInterval(Double(steps) / 105 * 60),
+                        steps: steps, meters: meters, route: loop)
+        }
+    }
 }
