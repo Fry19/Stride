@@ -1,19 +1,25 @@
 # Stride
 
-An iPhone app that rewards you for walking. It reads your daily steps from Apple Health and turns them into passport stamps, coins you spend on real treats, badges, and a virtual journey along three famous trails.
+An iPhone app that levels you up for walking. You start in a plain white sneaker; every step earns XP, and every five levels unlocks a new shoe, each one more extravagant than the last. Your app icon changes to match.
 
-## What you earn
+Stride reads your steps from Apple Health and counts new ones live while the app is open.
 
-| Reward | How |
+## How it works
+
+| | |
 | --- | --- |
-| **Stamp** | Hit your daily step goal. Stamps fill your passport. |
-| **Coins** | 1 coin per 100 steps, +25 for hitting your goal, plus a bonus for each badge (10 to 500). |
-| **Rewards** | Treats you add yourself with a coin price, like a fancy coffee for 300. Redeem them when you can afford them. |
-| **Streak** | Consecutive goal days. Every 7 days in a row earns a streak freeze (up to 2 saved). A freeze is used automatically if you miss a day, so one rest day doesn't end your streak. |
+| **XP** | 1 XP per step, +1,500 for hitting your daily goal, and a bonus for each badge (200 to 10,000). |
+| **Levels** | 50 levels. Level 2 comes on your first walk; level 50 takes roughly a year and a half of 8,000-step days. |
+| **Shoes** | A new shoe every 5 levels: Fresh Kicks, Laced Up, Trail Blazer, Neon Rush, Carbon Racer, Chrome, Solid Gold, Diamond, Winged and Cosmic. |
+| **App icon** | Switches to your newest shoe when you unlock it. You can also pick any unlocked icon in the Locker tab. |
+| **Stamps** | One for every day you hit your goal. |
+| **Streak** | Consecutive goal days. Every 7 days in a row earns a streak freeze (up to 2 saved), used automatically if you miss a day. |
 | **Badges** | 12 milestones, from your first day to 1,000,000 steps. |
-| **Journey** | Your walking distance moves you along the Inca Trail (≈43 km), Hadrian's Wall Path (≈135 km) and the Camino de Santiago (≈780 km), in that order. Every stop you reach unlocks a postcard. Distances are approximate. |
+| **Journey** | Your walking distance moves you along the Inca Trail (≈43 km), Hadrian's Wall Path (≈135 km) and the Camino de Santiago (≈780 km), with a postcard at every stop. Distances are approximate. |
 
-Rewards count from the day you set the app up. Steps typed into the Health app by hand don't count.
+XP counts from the day you set the app up. Steps typed into the Health app by hand don't count.
+
+**Live steps:** the iPhone's pedometer only reports every few seconds, so while Stride is open it also counts steps from the accelerometer as they happen. When the pedometer reports, its number takes over; the count never goes backwards.
 
 ## Installing on your iPhone
 
@@ -66,16 +72,21 @@ If Xcode refuses to sign the app because of the HealthKit capability, remove it:
 
 The simulator has no step data. Open **Today → gear icon → Show sample data** to fill the app with 60 days of made-up walking. Turn it off to go back to your real data.
 
+Debug builds can also open straight to a screen with sample data by launching with `-StrideScreen today` (or `journey`, `locker`, `trophies`, `celebration`, `onboarding`). The screenshot workflow uses this.
+
 ## Project layout
 
 ```
 Stride.xcodeproj
 Stride/                 The app (SwiftUI)
-  Model/                App state, saving, Apple Health and motion sensor access
-  Views/                Today, Journey, Passport, Rewards, Settings, onboarding, celebrations
-StrideCore/             Swift package with the reward rules: coins, streaks, badges, journey routes
+  Model/                App state, saving, Apple Health, live step counting, app icon switching
+  Views/                Today, Journey, Locker, Trophies, Settings, onboarding, celebrations
+StrideCore/             Swift package with the rules: XP, levels and tiers, streaks, badges, journey routes
+Design/                 Generator for the shoe artwork and app icons
 Config/                 Entitlements (HealthKit)
 ```
+
+The ten shoes and app icons are drawn by `Design/shoes.py` as SVG and rendered with headless Chromium. To change them, edit the script and run `Design/build.sh`, which updates `Stride/Assets.xcassets`.
 
 ## Builds
 
