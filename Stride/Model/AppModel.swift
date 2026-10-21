@@ -48,6 +48,8 @@ final class AppModel {
     @ObservationIgnored private var raceRefreshedAt: Date?
     /// Steps so far inside each of today's windowed quests, by quest id.
     @ObservationIgnored private var questWindowSteps: [String: Int] = [:]
+    /// Whether today's goal was met at the last recompute, to clear tonight's nudge the moment it is.
+    @ObservationIgnored private var goalMetAtLastCheck = false
 
     init() {
         let today = Day(Date())
@@ -121,6 +123,7 @@ final class AppModel {
         save()
         recompute()
         startLiveUpdates()
+        updateNudge()
         await refreshRace()
         await refreshQuestWindows()
     }
@@ -398,6 +401,7 @@ final class AppModel {
         if state.showsLiveActivity || walk.isActive {
             await liveActivity.showNow(liveActivityState)
         }
+        await Nudge.schedule(today: summary.todayResult, streak: summary.currentStreak)
         UserDefaults.standard.set(Date(), forKey: Self.lastBackgroundRefreshKey)
     }
 
@@ -476,6 +480,25 @@ final class AppModel {
         return max(1, days.reduce(0) { $0 + $1.meters } / Double(days.count) / 1000)
     }
 
+    // MARK: - Nudge
+
+    /// Reschedules the evening nudge with today's numbers.
+    func updateNudge() {
+        guard state.hasOnboarded, !state.useSampleData, !ScreenshotMode.isActive else { return }
+        let today = summary.todayResult
+        let streak = summary.currentStreak
+        Task { await Nudge.schedule(today: today, streak: streak) }
+    }
+
+    /// Turns the evening nudge on or off, asking to send notifications the first time.
+    /// Returns whether it ended up on.
+    func setNudgeEnabled(_ on: Bool) async -> Bool {
+        let allowed = on ? await Nudge.requestPermission() : false
+        UserDefaults.standard.set(allowed, forKey: Nudge.enabledKey)
+        updateNudge()
+        return allowed
+    }
+
     func setUseSampleData(_ on: Bool) {
         state.useSampleData = on
         save()
@@ -521,6 +544,10 @@ final class AppModel {
         }
         walk.noteTodaySteps(summary.todayResult.steps, goal: summary.todayResult.goal)
         updateLiveActivity()
+        if summary.todayResult.goalMet != goalMetAtLastCheck {
+            goalMetAtLastCheck = summary.todayResult.goalMet
+            updateNudge()
+        }
         guard state.hasOnboarded, !state.useSampleData else { return }
         let showing = Set(celebration.map(\.id))
         let fresh = summary.unlocks.filter { !state.celebrated.contains($0.id) && !showing.contains($0.id) }

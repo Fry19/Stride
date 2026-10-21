@@ -1,7 +1,7 @@
 import StrideCore
 import SwiftUI
 
-/// Badges, passport stamps and streak freezes.
+/// Records, badges, the goal calendar, passport stamps and streak freezes.
 struct TrophiesView: View {
     @Environment(AppModel.self) private var model
     @State private var openBadge: BadgeProgress?
@@ -59,6 +59,8 @@ struct TrophiesView: View {
                     }
                 }
 
+                RecordsCard(summary: summary, walks: model.walks)
+
                 VStack(alignment: .leading, spacing: 14) {
                     SectionLabel(text: "Badges")
                     LazyVGrid(columns: badgeColumns, spacing: 12) {
@@ -72,6 +74,8 @@ struct TrophiesView: View {
                         }
                     }
                 }
+
+                GoalCalendar(summary: summary)
 
                 VStack(alignment: .leading, spacing: 14) {
                     SectionLabel(text: "Passport")

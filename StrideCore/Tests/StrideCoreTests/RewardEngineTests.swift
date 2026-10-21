@@ -278,4 +278,39 @@ final class RewardEngineTests: XCTestCase {
         let decoded = try JSONDecoder().decode(JourneyPlan.self, from: JSONEncoder().encode(plan))
         XCTAssertEqual(decoded, plan)
     }
+
+    // MARK: - Records
+
+    func testWeekdays() {
+        XCTAssertEqual(start.weekday, 5) // Thursday
+        XCTAssertEqual(Day(year: 2023, month: 12, day: 31).weekday, 1) // Sunday
+        XCTAssertEqual(Day(year: 2024, month: 1, day: 1).weekday, 2) // Monday
+        XCTAssertEqual(start.startOfWeek(firstWeekday: 2), Day(year: 2026, month: 9, day: 28))
+        XCTAssertEqual(start.startOfWeek(firstWeekday: 1), Day(year: 2026, month: 9, day: 27))
+        XCTAssertEqual(Day(year: 2026, month: 10, day: 4).startOfWeek(firstWeekday: 1), Day(year: 2026, month: 10, day: 4))
+    }
+
+    func testRecordsFindTheBestDayWeekAndMonth() {
+        // Thursday 1 October to Wednesday 14 October.
+        let summary = summarize([9_000, 3_000, 12_000, 8_000, 8_000, 0, 15_000,
+                                 2_000, 9_000, 9_000, 9_000, 9_000, 9_000, 1_000])
+        let mondays = StepRecords(summary: summary, firstWeekday: 2)
+        XCTAssertEqual(mondays.bestDay?.day, start.adding(days: 6))
+        XCTAssertEqual(mondays.bestDay?.steps, 15_000)
+        XCTAssertEqual(mondays.bestWeek, StepRecords.Period(start: Day(year: 2026, month: 10, day: 5), steps: 52_000))
+        XCTAssertEqual(mondays.bestMonth, StepRecords.Period(start: start, steps: 103_000))
+        XCTAssertEqual(mondays.totalSteps, 103_000)
+        XCTAssertEqual(mondays.dailyAverage, 103_000 / 13)
+        XCTAssertEqual(mondays.goalDays, 10)
+
+        let sundays = StepRecords(summary: summary, firstWeekday: 1)
+        XCTAssertEqual(sundays.bestWeek, StepRecords.Period(start: Day(year: 2026, month: 10, day: 4), steps: 51_000))
+    }
+
+    func testRecordsWithNoSteps() {
+        let records = StepRecords(summary: summarize([0]))
+        XCTAssertNil(records.bestDay)
+        XCTAssertNil(records.bestWeek)
+        XCTAssertEqual(records.dailyAverage, 0)
+    }
 }

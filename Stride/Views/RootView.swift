@@ -56,6 +56,7 @@ struct RootView: View {
                     model.stopLiveUpdates()
                 }
                 model.save()
+                model.updateNudge()
                 BackgroundRefresh.schedule()
             default:
                 break

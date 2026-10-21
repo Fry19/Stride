@@ -51,6 +51,18 @@ public struct Day: Hashable, Comparable, Codable, CustomStringConvertible {
         return (0...days(until: last)).map { adding(days: $0) }
     }
 
+    /// 1 for Sunday through 7 for Saturday, as in `Calendar`.
+    public var weekday: Int {
+        // 1 January 2024 was a Monday.
+        let offset = Day(year: 2024, month: 1, day: 1).days(until: self)
+        return ((offset % 7 + 7) % 7 + 1) % 7 + 1
+    }
+
+    /// The first day of the week this day is in, for weeks starting on `firstWeekday` (1 is Sunday).
+    public func startOfWeek(firstWeekday: Int) -> Day {
+        adding(days: -((weekday - firstWeekday + 7) % 7))
+    }
+
     public static func < (lhs: Day, rhs: Day) -> Bool {
         (lhs.year, lhs.month, lhs.day) < (rhs.year, rhs.month, rhs.day)
     }

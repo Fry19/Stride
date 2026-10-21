@@ -15,6 +15,9 @@ struct SettingsView: View {
     @AppStorage(WalkPreferences.autoPauseKey) private var autoPause = true
     @AppStorage(WalkPreferences.spokenUpdatesKey) private var spokenUpdates = true
     @AppStorage(WalkPreferences.saveToHealthKey) private var saveToHealth = false
+    @AppStorage(Nudge.enabledKey) private var nudgeEnabled = false
+    @AppStorage(Nudge.minutesKey) private var nudgeMinutes = 19 * 60 + 30
+    @State private var nudgeDenied = false
 
     var body: some View {
         NavigationStack {
@@ -38,6 +41,18 @@ struct SettingsView: View {
                         .tint(Theme.ember)
                 } footer: {
                     Text("Shows today's steps on the Lock Screen and in the Dynamic Island. They update live while Stride is open or you're on a walk, and every so often in the background when iOS allows it. iOS ends it after 8 hours; opening Stride starts it again.")
+                }
+
+                Section {
+                    Toggle("Evening nudge", isOn: nudge)
+                        .tint(Theme.ember)
+                    if nudgeEnabled {
+                        DatePicker("Time", selection: nudgeTime, displayedComponents: .hourAndMinute)
+                    }
+                } footer: {
+                    Text(nudgeDenied
+                         ? "Notifications are off for Stride. Turn them on in Settings → Notifications → Stride." as String
+                         : "If you haven't hit your goal by then, Stride tells you how many steps are left and roughly how long a walk that is. Nothing is sent on days you've already made it.")
                 }
 
                 Section {
@@ -152,6 +167,27 @@ struct SettingsView: View {
             ? "Last saved \(Date(timeIntervalSince1970: lastBackup).formatted(date: .abbreviated, time: .omitted)). "
             : ""
         return saved + "Saves your XP, journeys, quests and walks to a file, for example in iCloud Drive. Deleting Stride deletes them, so save one before reinstalling."
+    }
+
+    private var nudge: Binding<Bool> {
+        Binding(get: { nudgeEnabled }, set: { on in
+            nudgeEnabled = on
+            Task {
+                let enabled = await model.setNudgeEnabled(on)
+                nudgeDenied = on && !enabled
+            }
+        })
+    }
+
+    /// The nudge time as a date today, for the picker.
+    private var nudgeTime: Binding<Date> {
+        Binding(
+            get: { Calendar.current.startOfDay(for: Date()).addingTimeInterval(Double(nudgeMinutes) * 60) },
+            set: { date in
+                let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
+                nudgeMinutes = (parts.hour ?? 19) * 60 + (parts.minute ?? 30)
+                model.updateNudge()
+            })
     }
 
     private var healthWorkouts: Binding<Bool> {
