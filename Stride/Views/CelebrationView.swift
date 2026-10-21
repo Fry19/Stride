@@ -36,6 +36,7 @@ struct CelebrationView: View {
             switch unlock.kind {
             case .stamp: return total + RewardRules.goalBonusXP
             case .badge(let badge, _): return total + badge.xp
+            case .quest(let bonus): return total + bonus.xp
             case .stop, .freezeUsed, .levelUp: return total
             }
         }
@@ -146,6 +147,7 @@ struct CelebrationView: View {
         case .stop: return others.count > 1 ? "New postcards!" : "New postcard!"
         case .freezeUsed: return "Streak saved"
         case .levelUp: return "Level up!"
+        case .quest: return others.count > 1 ? "Quests complete!" : "Quest complete!"
         }
     }
 }
@@ -173,6 +175,7 @@ private extension Unlock {
         case .stop: return "stop"
         case .freezeUsed: return "freeze"
         case .levelUp: return "level"
+        case .quest: return "quest"
         }
     }
 }
@@ -221,6 +224,13 @@ private struct UnlockRow: View {
                 .foregroundStyle(Theme.frost)
                 .frame(width: 56, height: 56)
                 .background(Theme.frost.opacity(0.16), in: Circle())
+        case .quest(let bonus):
+            Image(systemName: Quests.all.first { "quest.\($0.id)" == bonus.id }?.symbol ?? "checkmark")
+                .font(.system(size: 24, weight: .bold))
+                .foregroundStyle(Theme.background)
+                .frame(width: 56, height: 56)
+                .background(LinearGradient(colors: Theme.xpColors, startPoint: .topLeading, endPoint: .bottomTrailing),
+                            in: Circle())
         case .levelUp:
             EmptyView()
         }
@@ -233,6 +243,7 @@ private struct UnlockRow: View {
         case .stop(let reached): return reached.stop.name
         case .freezeUsed: return "Streak saved"
         case .levelUp(let level, _): return "Level \(level)"
+        case .quest(let bonus): return Quests.all.first { "quest.\($0.id)" == bonus.id }?.title ?? "Quest complete"
         }
     }
 
@@ -243,6 +254,7 @@ private struct UnlockRow: View {
         case .stop(let reached): return "New postcard from the \(reached.route.name)"
         case .freezeUsed(let day): return "A freeze covered \(StrideFormat.date(day)), so your streak lives on."
         case .levelUp: return ""
+        case .quest(let bonus): return Quests.all.first { "quest.\($0.id)" == bonus.id }?.detail ?? "Daily quest"
         }
     }
 
@@ -250,6 +262,7 @@ private struct UnlockRow: View {
         switch unlock.kind {
         case .stamp: return RewardRules.goalBonusXP
         case .badge(let badge, _): return badge.xp
+        case .quest(let bonus): return bonus.xp
         case .stop, .freezeUsed, .levelUp: return nil
         }
     }

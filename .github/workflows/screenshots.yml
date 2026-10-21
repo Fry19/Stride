@@ -64,6 +64,7 @@ jobs:
           shoot 3-celebration celebration dark
           shoot 4-journey journey dark
           shoot 5-trophies trophies dark
+          shoot 7-recap recap dark
           shoot 6-onboarding onboarding dark
           ls -la shots
 

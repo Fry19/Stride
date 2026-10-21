@@ -30,14 +30,27 @@ final class HealthSource {
         }
     }
 
-    private func dailySums(of type: HKQuantityType, unit: HKUnit, from start: Date, to end: Date) async throws -> [Day: Double] {
+    /// Total steps between two moments, or nil when Health has none.
+    func steps(from start: Date, to end: Date) async throws -> Int? {
+        guard isAvailable else { return nil }
+        let query = HKStatisticsQueryDescriptor(
+            predicate: .quantitySample(type: stepType, predicate: Self.predicate(from: start, to: end)),
+            options: .cumulativeSum)
+        let statistics = try await query.result(for: store)
+        return statistics?.sumQuantity().map { Int($0.doubleValue(for: .count()).rounded()) }
+    }
+
+    /// Samples in the range, leaving out anything typed in by hand.
+    private static func predicate(from start: Date, to end: Date) -> NSPredicate {
         let inRange = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
         let notTypedIn = HKQuery.predicateForObjects(
             withMetadataKey: HKMetadataKeyWasUserEntered, operatorType: .notEqualTo, value: true)
+        return NSCompoundPredicate(andPredicateWithSubpredicates: [inRange, notTypedIn])
+    }
+
+    private func dailySums(of type: HKQuantityType, unit: HKUnit, from start: Date, to end: Date) async throws -> [Day: Double] {
         let query = HKStatisticsCollectionQueryDescriptor(
-            predicate: .quantitySample(
-                type: type,
-                predicate: NSCompoundPredicate(andPredicateWithSubpredicates: [inRange, notTypedIn])),
+            predicate: .quantitySample(type: type, predicate: Self.predicate(from: start, to: end)),
             options: .cumulativeSum,
             anchorDate: start,
             intervalComponents: DateComponents(day: 1))
@@ -74,6 +87,12 @@ final class MotionSource {
             }
         }
         return result
+    }
+
+    /// Steps between two moments in the last 7 days, or nil if the pedometer can't say.
+    func steps(from start: Date, to end: Date) async -> Int? {
+        guard canCount else { return nil }
+        return await query(from: start, to: end)?.numberOfSteps.intValue
     }
 
     /// Calls `onUpdate` with the running total for `day` as the user walks.

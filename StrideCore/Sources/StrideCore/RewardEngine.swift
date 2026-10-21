@@ -6,12 +6,15 @@ public struct RewardInput {
     public var startDay: Day
     public var today: Day
     public var goalChanges: [GoalChange]
+    /// Extra XP, such as from quests.
+    public var bonuses: [BonusXP]
 
-    public init(activity: [DayActivity], startDay: Day, today: Day, goalChanges: [GoalChange]) {
+    public init(activity: [DayActivity], startDay: Day, today: Day, goalChanges: [GoalChange], bonuses: [BonusXP] = []) {
         self.activity = activity
         self.startDay = startDay
         self.today = today
         self.goalChanges = goalChanges
+        self.bonuses = bonuses
     }
 }
 
@@ -32,7 +35,7 @@ public struct DayResult: Hashable, Identifiable {
     public let meters: Double
     public let goal: Int
     public let status: DayStatus
-    /// XP this day earned, including the goal bonus.
+    /// XP this day earned: steps, the goal bonus and quests.
     public let xp: Int
 
     public var id: Day { day }
@@ -93,6 +96,7 @@ public struct Unlock: Identifiable, Hashable {
         case stop(ReachedStop)
         case freezeUsed(Day)
         case levelUp(Int, Day)
+        case quest(BonusXP)
     }
 
     public let kind: Kind
@@ -104,6 +108,7 @@ public struct Unlock: Identifiable, Hashable {
         case .stop(let reached): return "stop:\(reached.stop.id)"
         case .freezeUsed(let day): return "freeze:\(day.id)"
         case .levelUp(let level, _): return "level:\(level)"
+        case .quest(let bonus): return "bonus:\(bonus.day.id):\(bonus.id)"
         }
     }
 }
@@ -120,7 +125,7 @@ public struct RewardSummary {
     /// Since the start day.
     public let lifetimeSteps: Int
     public let lifetimeMeters: Double
-    /// XP from steps and goal bonuses.
+    /// XP earned day by day: steps, goal bonuses and quests.
     public let stepXP: Int
     public let badgeXP: Int
     public let badges: [BadgeProgress]
@@ -193,6 +198,7 @@ public enum RewardEngine {
             first.steps >= second.steps ? first : second
         }
         let earliest = byDay.keys.filter { $0 <= today }.min() ?? start
+        let bonusesByDay = Dictionary(grouping: input.bonuses, by: \.day)
         let milestones = Journeys.milestones
 
         var days: [DayResult] = []
@@ -254,7 +260,9 @@ public enum RewardEngine {
                 status = .missed
             }
 
+            let dayBonuses = bonusesByDay[day] ?? []
             let xp = steps * RewardRules.xpPerStep + (met ? RewardRules.goalBonusXP : 0)
+                + dayBonuses.reduce(0) { $0 + $1.xp }
             stepXP += xp
             lifetimeSteps += steps
             lifetimeMeters += meters
@@ -266,6 +274,7 @@ public enum RewardEngine {
             days.append(result)
             if met { unlocks.append(Unlock(kind: .stamp(result))) }
             if status == .frozen { unlocks.append(Unlock(kind: .freezeUsed(day))) }
+            unlocks.append(contentsOf: dayBonuses.map { Unlock(kind: .quest($0)) })
 
             for badge in Badges.all where badgeUnlocks[badge.id] == nil && value(of: badge.metric) >= badge.target {
                 badgeUnlocks[badge.id] = day

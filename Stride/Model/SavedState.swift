@@ -13,6 +13,8 @@ struct SavedState: Codable {
     var useSampleData = false
     /// The tier whose app icon the user picked, or nil to match their tier automatically.
     var iconTier: Int?
+    /// XP from completed quests.
+    var bonuses: [BonusXP] = []
 
     init(startDay: Day) {
         self.startDay = startDay
@@ -28,6 +30,7 @@ struct SavedState: Codable {
         celebrated = try container.decodeIfPresent(Set<String>.self, forKey: .celebrated) ?? []
         useSampleData = try container.decodeIfPresent(Bool.self, forKey: .useSampleData) ?? false
         iconTier = try container.decodeIfPresent(Int.self, forKey: .iconTier)
+        bonuses = try container.decodeIfPresent([BonusXP].self, forKey: .bonuses) ?? []
     }
 }
 

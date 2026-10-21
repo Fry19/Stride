@@ -3,7 +3,7 @@ import StrideCore
 
 /// Debug builds launched with `-StrideScreen <screen>` open straight to that screen, filled with
 /// sample data and without touching saved data. The screenshots workflow uses this.
-/// Screens: today, journey, level, trophies, celebration, onboarding.
+/// Screens: today, journey, level, trophies, recap, celebration, onboarding.
 enum ScreenshotMode {
     static let screen: String? = {
         #if DEBUG
@@ -15,7 +15,9 @@ enum ScreenshotMode {
 
     static var isActive: Bool { screen != nil }
 
-    static var initialTab: AppTab { AppTab(rawValue: screen ?? "") ?? .today }
+    static var initialTab: AppTab {
+        screen == "recap" ? .trophies : AppTab(rawValue: screen ?? "") ?? .today
+    }
 
     static func state(today: Day) -> SavedState {
         var state = SavedState(startDay: today)

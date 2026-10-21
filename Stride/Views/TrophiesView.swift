@@ -5,6 +5,7 @@ import SwiftUI
 struct TrophiesView: View {
     @Environment(AppModel.self) private var model
     @State private var openBadge: BadgeProgress?
+    @State private var showingRecap = ScreenshotMode.screen == "recap"
 
     private let badgeColumns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
     private let stampColumns = [GridItem(.adaptive(minimum: 96), spacing: 14)]
@@ -19,6 +20,32 @@ struct TrophiesView: View {
                 if model.showsSampleDataBanner {
                     SampleDataBanner()
                 }
+
+                Button {
+                    showingRecap = true
+                } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: "sparkles.rectangle.stack.fill")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(Theme.ember)
+                            .frame(width: 44, height: 44)
+                            .background(Theme.ember.opacity(0.14), in: Circle())
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Your recap")
+                                .font(.headline)
+                                .foregroundStyle(.white)
+                            Text("Your week or month on one card, ready to share.")
+                                .font(.footnote)
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(Theme.textTertiary)
+                    }
+                    .glass(radius: 22, padding: 14)
+                }
+                .buttonStyle(.plain)
 
                 HStack(spacing: 12) {
                     StatTile(label: "Stamps", value: stamps.count.formatted()) {
@@ -79,6 +106,9 @@ struct TrophiesView: View {
         }
         .scrollIndicators(.hidden)
         .background(ScreenBackground(glow: Theme.ember))
+        .sheet(isPresented: $showingRecap) {
+            RecapView()
+        }
         .sheet(item: $openBadge) { progress in
             BadgeDetail(progress: progress)
                 .presentationDetents([.medium])

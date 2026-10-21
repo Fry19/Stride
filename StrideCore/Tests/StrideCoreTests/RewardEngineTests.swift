@@ -172,6 +172,42 @@ final class RewardEngineTests: XCTestCase {
         XCTAssertEqual(week.first?.status, .beforeStart)
     }
 
+    func testBonusXPCountsOnItsDay() {
+        let bonus = BonusXP(day: start, id: "quest.ten-k", xp: 750)
+        let summary = RewardEngine.summarize(RewardInput(
+            activity: [DayActivity(day: start, steps: 3_000, meters: 0)], startDay: start, today: start,
+            goalChanges: [GoalChange(from: start, goal: 8_000)], bonuses: [bonus]))
+        XCTAssertEqual(summary.todayResult.xp, 3_000 + 750)
+        XCTAssertTrue(summary.unlocks.contains { $0.id == "bonus:\(start.id):quest.ten-k" })
+    }
+
+    func testQuestsAreThreeDistinctAndStableForADay() {
+        let quests = Quests.forDay(start)
+        XCTAssertEqual(quests.count, Quests.perDay)
+        XCTAssertEqual(Set(quests.map(\.id)).count, Quests.perDay)
+        XCTAssertEqual(Quests.forDay(start).map(\.id), quests.map(\.id))
+        let week = start.through(start.adding(days: 6)).map { Quests.forDay($0).map(\.id) }
+        XCTAssertGreaterThan(Set(week).count, 1)
+    }
+
+    func testQuestStates() {
+        let earlyBird = Quests.all.first { $0.id == "early-bird" }!
+        var context = QuestContext(minutesIntoDay: 480, steps: 1_500, goal: 8_000, yesterdaySteps: 6_000,
+                                   windowSteps: ["early-bird": 1_500], longestWalkMinutes: 0)
+        XCTAssertEqual(Quests.state(of: earlyBird, in: context), .inProgress(current: 1_500, target: 2_000))
+        context.minutesIntoDay = 600
+        XCTAssertEqual(Quests.state(of: earlyBird, in: context), .missed(current: 1_500, target: 2_000))
+        context.windowSteps["early-bird"] = 2_100
+        XCTAssertEqual(Quests.state(of: earlyBird, in: context), .done)
+
+        let beat = Quests.all.first { $0.id == "better-than-yesterday" }!
+        XCTAssertEqual(Quests.state(of: beat, in: context), .inProgress(current: 1_500, target: 6_001))
+
+        let walk = Quests.all.first { $0.id == "power-walk" }!
+        context.longestWalkMinutes = 16
+        XCTAssertEqual(Quests.state(of: walk, in: context), .done)
+    }
+
     func testRouteStopsAreInOrder() {
         for route in Journeys.routes {
             XCTAssertEqual(route.stops.first?.km, 0, route.name)

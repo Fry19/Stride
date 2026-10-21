@@ -5,6 +5,7 @@ import SwiftUI
 struct TodayView: View {
     @Environment(AppModel.self) private var model
     @State private var showingSettings = false
+    @State private var showingRecap = false
     let openLevel: () -> Void
 
     var body: some View {
@@ -27,6 +28,12 @@ struct TodayView: View {
                     SampleDataBanner()
                 }
                 hero(today)
+                if let race = model.race, !race.rivals.isEmpty {
+                    RaceCard(race: race, steps: today.steps)
+                }
+                if !model.quests.isEmpty {
+                    QuestCard(quests: model.quests)
+                }
                 Button(action: openLevel) {
                     LevelCard(level: level)
                 }
@@ -45,7 +52,9 @@ struct TodayView: View {
                             .foregroundStyle(Theme.ember)
                     }
                 }
-                WeekChart(days: summary.lastDays(7))
+                WeekChart(days: summary.lastDays(7)) {
+                    showingRecap = true
+                }
                 UpNextCard(summary: summary)
                 if showsHealthHint(summary) {
                     HealthHint()
@@ -61,6 +70,9 @@ struct TodayView: View {
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
+        }
+        .sheet(isPresented: $showingRecap) {
+            RecapView()
         }
         .sensoryFeedback(.success, trigger: today.goalMet)
     }
@@ -136,18 +148,194 @@ private struct LiveLabel: View {
     }
 }
 
+private struct QuestCard: View {
+    let quests: [QuestProgress]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .firstTextBaseline) {
+                SectionLabel(text: "Today's quests")
+                Spacer()
+                Text("\(quests.filter { $0.state == .done }.count) of \(quests.count) done")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.textTertiary)
+            }
+            ForEach(quests) { progress in
+                QuestRow(progress: progress)
+            }
+        }
+        .glass()
+    }
+}
+
+private struct QuestRow: View {
+    let progress: QuestProgress
+
+    private var isDone: Bool { progress.state == .done }
+    private var isMissed: Bool {
+        if case .missed = progress.state { return true }
+        return false
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: isDone ? "checkmark" : progress.quest.symbol)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(isDone ? Theme.background : Theme.xpColors[0])
+                .frame(width: 38, height: 38)
+                .background {
+                    if isDone {
+                        Circle().fill(LinearGradient(colors: Theme.xpColors, startPoint: .topLeading, endPoint: .bottomTrailing))
+                    } else {
+                        Circle().fill(Theme.xpColors[0].opacity(0.12))
+                    }
+                }
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(progress.quest.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                    Spacer()
+                    Text("+\(StrideFormat.xp(progress.quest.xp))")
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundStyle(isDone ? Theme.xpColors[0] : Theme.textTertiary)
+                }
+                Text(progress.quest.detail)
+                    .font(.footnote)
+                    .foregroundStyle(Theme.textSecondary)
+                if !isDone {
+                    HStack(spacing: 10) {
+                        XPBar(fraction: progress.fraction, height: 5)
+                        Text(isMissed ? "Missed" : progressText)
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Theme.textTertiary)
+                            .monospacedDigit()
+                            .fixedSize()
+                    }
+                }
+            }
+        }
+        .opacity(isMissed ? 0.5 : 1)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var progressText: String {
+        guard case .inProgress(let current, let target) = progress.state else { return "" }
+        if case .walk = progress.quest.kind {
+            return "\(current) / \(target) min"
+        }
+        return "\(current.formatted()) / \(target.formatted())"
+    }
+}
+
+/// Today against earlier days at the same time of day.
+private struct RaceCard: View {
+    let race: RaceStatus
+    let steps: Int
+
+    private var lead: Int { steps - (race.rivals.first?.stepsByNow ?? 0) }
+    private var scale: Double {
+        Double(max(1, race.rivals.map(\.stepsByNow).max() ?? 0, steps)) * 1.08
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .firstTextBaseline) {
+                SectionLabel(text: "Race your past self")
+                Spacer()
+                Text("at \(race.asOf.formatted(date: .omitted, time: .shortened))")
+                    .font(.caption)
+                    .foregroundStyle(Theme.textTertiary)
+            }
+            if let first = race.rivals.first {
+                Text(headline(against: first))
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .foregroundStyle(lead >= 0 ? Theme.live : Theme.ember)
+                    .contentTransition(.numericText(value: Double(lead)))
+                    .animation(.snappy(duration: 0.25), value: lead)
+            }
+            VStack(spacing: 12) {
+                RaceLane(name: "You", value: steps, fraction: Double(steps) / scale, isYou: true)
+                ForEach(race.rivals) { rival in
+                    RaceLane(name: rival.name, value: rival.stepsByNow, fraction: Double(rival.stepsByNow) / scale,
+                             isYou: false)
+                }
+            }
+            if let first = race.rivals.first {
+                Text("\(first.name) you finished with \(first.dayTotal.formatted()) steps.")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.textTertiary)
+            }
+        }
+        .glass()
+    }
+
+    private func headline(against rival: RaceStatus.Rival) -> String {
+        let name = rival.name.lowercased()
+        if lead == 0 { return "Neck and neck with \(name)" }
+        return lead > 0
+            ? "\(lead.formatted()) steps ahead of \(name)"
+            : "\((-lead).formatted()) steps behind \(name)"
+    }
+}
+
+private struct RaceLane: View {
+    let name: String
+    let value: Int
+    let fraction: Double
+    let isYou: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(name)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(isYou ? Color.white : Theme.textSecondary)
+                Spacer()
+                Text(value.formatted())
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(isYou ? Color.white : Theme.textSecondary)
+                    .monospacedDigit()
+                    .contentTransition(.numericText(value: Double(value)))
+            }
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.06))
+                    Capsule()
+                        .fill(isYou
+                              ? AnyShapeStyle(LinearGradient(colors: Theme.ringColors, startPoint: .leading, endPoint: .trailing))
+                              : AnyShapeStyle(Color.white.opacity(0.28)))
+                        .frame(width: max(8, geometry.size.width * min(fraction, 1)))
+                        .shadow(color: isYou ? Theme.ember.opacity(0.5) : .clear, radius: 6)
+                }
+            }
+            .frame(height: 8)
+            .animation(.spring(response: 0.5, dampingFraction: 0.85), value: fraction)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
 private struct WeekChart: View {
     let days: [DayResult]
+    let openRecap: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 SectionLabel(text: "Last 7 days")
                 Spacer()
-                Text("\(days.reduce(0) { $0 + $1.steps }.formatted()) steps")
+                Button(action: openRecap) {
+                    HStack(spacing: 4) {
+                        Text("\(days.reduce(0) { $0 + $1.steps }.formatted()) steps")
+                            .monospacedDigit()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .bold))
+                    }
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundStyle(Theme.textSecondary)
-                    .monospacedDigit()
+                }
+                .accessibilityLabel("Open your recap")
             }
             Chart {
                 ForEach(days) { result in

@@ -13,6 +13,10 @@ final class AppModel {
     private(set) var healthError: String?
     /// When today's count last went up while the app was open.
     private(set) var lastLiveStep: Date?
+    /// Today against yesterday and the best day this week, at the same time of day.
+    private(set) var race: RaceStatus?
+    /// Today's quests and how far along each one is.
+    private(set) var quests: [QuestProgress] = []
 
     @ObservationIgnored private let health = HealthSource()
     @ObservationIgnored private let motion = MotionSource()
@@ -25,6 +29,9 @@ final class AppModel {
     /// Today's count including detected steps. Shown but never saved, since the pedometer
     /// and Health have the final word.
     @ObservationIgnored private var liveEstimate: DayActivity?
+    @ObservationIgnored private var raceRefreshedAt: Date?
+    /// Steps so far inside each of today's windowed quests, by quest id.
+    @ObservationIgnored private var questWindowSteps: [String: Int] = [:]
 
     init() {
         let today = Day(Date())
@@ -34,6 +41,13 @@ final class AppModel {
         self.state = state
         self.summary = Self.makeSummary(for: state, live: nil, today: today)
         self.celebration = ScreenshotMode.celebration(from: summary)
+        if state.useSampleData {
+            self.race = RaceStatus.sample(today: today, summary: summary, now: Date())
+            self.questWindowSteps = QuestProgress.sampleWindowSteps(today: today, steps: summary.todayResult.steps, now: Date())
+        }
+        if awardCompletedQuests() {
+            self.summary = Self.makeSummary(for: self.state, live: nil, today: today)
+        }
     }
 
     var showsSampleDataBanner: Bool {
@@ -85,6 +99,92 @@ final class AppModel {
         save()
         recompute()
         startLiveUpdates()
+        await refreshRace()
+        await refreshQuestWindows()
+    }
+
+    /// Looks up how many steps earlier days had by this time of day.
+    func refreshRace() async {
+        let now = Date()
+        let today = Day(now)
+        raceRefreshedAt = now
+        if state.useSampleData {
+            race = RaceStatus.sample(today: today, summary: summary, now: now)
+            return
+        }
+        let elapsed = now.timeIntervalSince(today.startDate())
+        var rivals: [RaceStatus.Rival] = []
+        for rival in RaceStatus.rivalDays(today: today, summary: summary) {
+            let start = rival.day.startDate()
+            let end = start.addingTimeInterval(elapsed)
+            let fromHealth = (try? await health.steps(from: start, to: end)) ?? nil
+            let fromMotion = await motion.steps(from: start, to: end)
+            let byNow = max(fromHealth ?? 0, fromMotion ?? 0)
+            guard byNow > 0 || rival.total > 0 else { continue }
+            rivals.append(RaceStatus.Rival(name: rival.name, day: rival.day, stepsByNow: min(byNow, rival.total),
+                                           dayTotal: rival.total))
+        }
+        race = rivals.isEmpty ? nil : RaceStatus(rivals: rivals, asOf: now)
+    }
+
+    /// The race moves with the clock, so it is looked up again every couple of minutes while walking.
+    private func refreshRaceIfStale() {
+        guard let refreshed = raceRefreshedAt, Date().timeIntervalSince(refreshed) > 120 else { return }
+        raceRefreshedAt = Date()
+        Task {
+            await refreshRace()
+            await refreshQuestWindows()
+        }
+    }
+
+    /// Looks up steps inside the time windows of today's quests, like "before 9 AM".
+    func refreshQuestWindows() async {
+        let now = Date()
+        let today = Day(now)
+        guard !state.useSampleData else {
+            questWindowSteps = QuestProgress.sampleWindowSteps(today: today, steps: summary.todayResult.steps, now: now)
+            recompute()
+            return
+        }
+        let dayStart = today.startDate()
+        var counts: [String: Int] = [:]
+        for quest in Quests.forDay(today) {
+            guard let window = quest.window else { continue }
+            let start = dayStart.addingTimeInterval(Double(window.lowerBound) * 60)
+            let end = min(now, dayStart.addingTimeInterval(Double(window.upperBound) * 60))
+            guard end > start else { continue }
+            let fromHealth = (try? await health.steps(from: start, to: end)) ?? nil
+            let fromMotion = await motion.steps(from: start, to: end)
+            counts[quest.id] = max(fromHealth ?? 0, fromMotion ?? 0)
+        }
+        questWindowSteps = counts
+        recompute()
+    }
+
+    /// Updates today's quest progress and records XP for any quest just completed.
+    /// Returns true if new XP was recorded.
+    private func awardCompletedQuests() -> Bool {
+        let now = Date()
+        let today = Day(now)
+        let todayResult = summary.todayResult
+        let context = QuestContext(
+            minutesIntoDay: Int(now.timeIntervalSince(today.startDate()) / 60),
+            steps: todayResult.steps,
+            goal: todayResult.goal,
+            yesterdaySteps: summary.result(for: today.adding(days: -1))?.steps ?? 0,
+            windowSteps: questWindowSteps,
+            longestWalkMinutes: 0)
+        quests = Quests.forDay(today).map { QuestProgress(quest: $0, state: Quests.state(of: $0, in: context)) }
+
+        guard state.hasOnboarded, !state.useSampleData, !ScreenshotMode.isActive else { return false }
+        let recorded = Set(state.bonuses.filter { $0.day == today }.map(\.id))
+        let fresh = quests.filter { $0.state == .done }
+            .map { Quests.bonus(for: $0.quest, on: today) }
+            .filter { !recorded.contains($0.id) }
+        guard !fresh.isEmpty else { return false }
+        state.bonuses.append(contentsOf: fresh)
+        save()
+        return true
     }
 
     func startLiveUpdates() {
@@ -124,6 +224,7 @@ final class AppModel {
         merge([activity])
         if displayedSteps(on: activity.day) > before { lastLiveStep = Date() }
         recompute()
+        refreshRaceIfStale()
     }
 
     private func applyDetectedStep() {
@@ -135,6 +236,7 @@ final class AppModel {
         liveEstimate = DayActivity(day: today, steps: estimate, meters: Double(estimate) * metersPerStep)
         lastLiveStep = Date()
         recompute()
+        refreshRaceIfStale()
     }
 
     private func savedSteps(on day: Day) -> Int {
@@ -172,6 +274,7 @@ final class AppModel {
         state.useSampleData = on
         save()
         recompute()
+        Task { await refreshRace() }
     }
 
     /// Picks the app icon for `tier`, or nil to match the current tier from now on.
@@ -205,7 +308,11 @@ final class AppModel {
 
     private func recompute() {
         let today = Day(Date())
-        summary = Self.makeSummary(for: state, live: liveEstimate?.day == today ? liveEstimate : nil, today: today)
+        let live = liveEstimate?.day == today ? liveEstimate : nil
+        summary = Self.makeSummary(for: state, live: live, today: today)
+        if awardCompletedQuests() {
+            summary = Self.makeSummary(for: state, live: live, today: today)
+        }
         guard state.hasOnboarded, !state.useSampleData else { return }
         let showing = Set(celebration.map(\.id))
         let fresh = summary.unlocks.filter { !state.celebrated.contains($0.id) && !showing.contains($0.id) }
@@ -222,6 +329,6 @@ final class AppModel {
         // The engine keeps the higher count when a day appears twice.
         return RewardEngine.summarize(RewardInput(
             activity: state.activity + (live.map { [$0] } ?? []), startDay: state.startDay, today: today,
-            goalChanges: state.goalChanges))
+            goalChanges: state.goalChanges, bonuses: state.bonuses))
     }
 }
