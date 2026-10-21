@@ -13,6 +13,9 @@ final class AppModel {
     private(set) var healthError: String?
     /// When today's count last went up while the app was open.
     private(set) var lastLiveStep: Date?
+    /// Today's steps as Apple Health reported them on the last refresh, for the status screen.
+    private(set) var healthStepsToday: Int?
+    private(set) var healthReadAt: Date?
     /// Today against yesterday and the best day this week, at the same time of day.
     private(set) var race: RaceStatus?
     /// Today's quests and how far along each one is.
@@ -97,7 +100,10 @@ final class AppModel {
         let today = Day(Date())
         var fetched: [DayActivity] = []
         do {
-            fetched += try await health.dailyTotals(from: min(state.startDay, today.adding(days: -27)), through: today)
+            let fromHealth = try await health.dailyTotals(from: min(state.startDay, today.adding(days: -27)), through: today)
+            fetched += fromHealth
+            healthStepsToday = fromHealth.first { $0.day == today }?.steps ?? 0
+            healthReadAt = Date()
             healthError = nil
         } catch {
             healthError = error.localizedDescription
@@ -350,6 +356,57 @@ final class AppModel {
         recompute()
         if state.showsLiveActivity || walk.isActive {
             await liveActivity.showNow(liveActivityState)
+        }
+        UserDefaults.standard.set(Date(), forKey: Self.lastBackgroundRefreshKey)
+    }
+
+    static let lastBackgroundRefreshKey = "lastBackgroundRefresh"
+
+    var lastBackgroundRefresh: Date? {
+        UserDefaults.standard.object(forKey: Self.lastBackgroundRefreshKey) as? Date
+    }
+
+    var isLiveActivityRunning: Bool { liveActivity.isRunning }
+
+    /// Whether the motion sensors are counting today's steps live right now.
+    var isCountingLive: Bool { liveDay != nil }
+
+    var isHealthAvailable: Bool { health.isAvailable }
+
+    func healthNeedsToAsk() async -> Bool {
+        await health.needsToAsk()
+    }
+
+    /// Shows the Health permission sheet again, if iOS still allows it, then reads steps.
+    func askForHealthAccess() async {
+        do {
+            try await health.requestAccess()
+        } catch {
+            healthError = error.localizedDescription
+        }
+        await refresh()
+    }
+
+    // MARK: - Backup
+
+    func makeBackup() -> StrideBackup {
+        StrideBackup(exportedAt: Date(), state: state, walks: walks)
+    }
+
+    /// Replaces everything with a backup. Unlocks it already celebrated aren't shown again.
+    func restore(_ backup: StrideBackup) {
+        state = backup.state
+        state.hasOnboarded = true
+        walks = backup.walks
+        save()
+        WalkStore.save(walks)
+        recompute()
+        AppIcon.apply(tier: iconTier)
+        Task {
+            // Restoring on a fresh install skips onboarding, where access is normally asked for.
+            try? await health.requestAccess()
+            _ = await motion.dailyTotals(lastDays: 1, endingOn: Day(Date()))
+            await refresh()
         }
     }
 

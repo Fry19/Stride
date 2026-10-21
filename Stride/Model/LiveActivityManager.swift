@@ -44,6 +44,8 @@ final class LiveActivityManager {
         await activity.update(ActivityContent(state: state, staleDate: Date().addingTimeInterval(30 * 60)))
     }
 
+    var isRunning: Bool { activity?.activityState == .active }
+
     func end() {
         guard let activity else { return }
         self.activity = nil

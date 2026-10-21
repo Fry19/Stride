@@ -11,10 +11,17 @@ final class HealthSource {
 
     var isAvailable: Bool { HKHealthStore.isHealthDataAvailable() }
 
+    private var readTypes: Set<HKObjectType> { [stepType, distanceType] }
+
     func requestAccess() async throws {
         guard isAvailable else { return }
-        let read: Set<HKObjectType> = [stepType, distanceType]
-        try await store.requestAuthorization(toShare: [], read: read)
+        try await store.requestAuthorization(toShare: [], read: readTypes)
+    }
+
+    /// Whether Stride still needs to ask for access. Health never says whether reading was allowed.
+    func needsToAsk() async -> Bool {
+        guard isAvailable else { return false }
+        return (try? await store.statusForAuthorizationRequest(toShare: [], read: readTypes)) == .shouldRequest
     }
 
     /// Totals for each day with data. Health doesn't say whether read access was

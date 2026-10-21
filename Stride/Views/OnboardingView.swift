@@ -1,10 +1,14 @@
 import StrideCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct OnboardingView: View {
     @Environment(AppModel.self) private var model
     @State private var goal = RewardRules.defaultGoal
     @State private var isConnecting = false
+    @State private var importing = false
+    @State private var backup: StrideBackup?
+    @State private var importFailed = false
 
     var body: some View {
         ScrollView {
@@ -34,7 +38,7 @@ struct OnboardingView: View {
                     FeatureRow(symbol: "arrow.up.circle.fill", color: Theme.ember, title: "Climb the tiers",
                                text: "A new material every 5 levels. Your app icon changes to match.")
                     FeatureRow(symbol: "map.fill", color: Color.route("camino"), title: "Collect along the way",
-                               text: "Stamps for goal days, badges for milestones, and postcards from three famous trails.")
+                               text: "Stamps for goal days, badges for milestones, and postcards from journeys near you or along famous trails.")
                 }
                 .glass()
 
@@ -68,6 +72,20 @@ struct OnboardingView: View {
                     Text("Stride only reads your steps and walking distance, and everything stays on this iPhone.")
                         .font(.footnote)
                         .foregroundStyle(Theme.textTertiary)
+
+                    Button("Restore from a backup") {
+                        importing = true
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.ember)
+                    .padding(.top, 4)
+                    .fileImporter(isPresented: $importing, allowedContentTypes: [.json]) { result in
+                        do {
+                            backup = try BackupDocument.read(from: result.get())
+                        } catch {
+                            importFailed = true
+                        }
+                    }
                 }
             }
             .padding(.horizontal, 24)
@@ -75,6 +93,19 @@ struct OnboardingView: View {
         }
         .scrollIndicators(.hidden)
         .background(ScreenBackground(glow: Levels.tiers[0].color))
+        .confirmationDialog("Restore this backup?", isPresented: restoring, titleVisibility: .visible,
+                            presenting: backup) { backup in
+            Button("Restore") { model.restore(backup) }
+        } message: { backup in
+            Text("Saved \(backup.exportedAt.formatted(date: .abbreviated, time: .shortened)), with \(backup.state.activity.count) days of steps and \(backup.walks.count) walks.")
+        }
+        .alert("That file isn't a Stride backup.", isPresented: $importFailed) {
+            Button("OK") {}
+        }
+    }
+
+    private var restoring: Binding<Bool> {
+        Binding(get: { backup != nil }, set: { if !$0 { backup = nil } })
     }
 }
 

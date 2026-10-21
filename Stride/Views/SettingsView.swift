@@ -1,10 +1,17 @@
 import StrideCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var goal = RewardRules.defaultGoal
+    @State private var exporting = false
+    @State private var backupToSave: BackupDocument?
+    @State private var importing = false
+    @State private var backupToRestore: StrideBackup?
+    @State private var backupMessage: String?
+    @AppStorage("lastBackup") private var lastBackup: Double = 0
 
     var body: some View {
         NavigationStack {
@@ -31,15 +38,57 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    LabeledContent("XP counted since", value: StrideFormat.date(model.state.startDay))
-                    if let error = model.healthError {
-                        Text("Apple Health couldn't be read: \(error)")
-                            .foregroundStyle(Theme.ember)
+                    NavigationLink {
+                        StatusView()
+                    } label: {
+                        HStack {
+                            Text("Status")
+                            Spacer()
+                            if model.healthError != nil {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(Theme.ember)
+                            }
+                        }
                     }
                 } header: {
                     Text("Step data")
                 } footer: {
-                    Text("Stride reads steps from Apple Health and counts new ones live from your iPhone's motion sensors while the app is open. Steps typed into Health by hand don't count. If steps aren't showing, open the Health app, tap your profile picture, then Apps → Stride.")
+                    Text("Stride reads steps from Apple Health and counts new ones live from your iPhone's motion sensors while the app is open. Steps typed into Health by hand don't count. Status shows what Stride can see and how to fix anything missing.")
+                }
+
+                Section {
+                    Button {
+                        backupToSave = BackupDocument(backup: model.makeBackup())
+                        exporting = true
+                    } label: {
+                        Label("Save a backup", systemImage: "square.and.arrow.down")
+                    }
+                    .fileExporter(isPresented: $exporting, document: backupToSave, contentType: .json,
+                                  defaultFilename: BackupDocument.defaultFilename) { result in
+                        switch result {
+                        case .success:
+                            lastBackup = Date().timeIntervalSince1970
+                            backupMessage = "Backup saved."
+                        case .failure(let error):
+                            backupMessage = "Couldn't save the backup: \(error.localizedDescription)"
+                        }
+                    }
+                    Button {
+                        importing = true
+                    } label: {
+                        Label("Restore from a backup", systemImage: "clock.arrow.circlepath")
+                    }
+                    .fileImporter(isPresented: $importing, allowedContentTypes: [.json]) { result in
+                        do {
+                            backupToRestore = try BackupDocument.read(from: result.get())
+                        } catch {
+                            backupMessage = "That file isn't a Stride backup."
+                        }
+                    }
+                } header: {
+                    Text("Backup")
+                } footer: {
+                    Text(backupFooter)
                 }
 
                 Section {
@@ -61,6 +110,18 @@ struct SettingsView: View {
             .onAppear {
                 goal = model.goal
             }
+            .confirmationDialog("Restore this backup?", isPresented: restoring, titleVisibility: .visible,
+                                presenting: backupToRestore) { backup in
+                Button("Replace everything", role: .destructive) {
+                    model.restore(backup)
+                    backupMessage = "Restored. Welcome back to level \(model.summary.level.level)."
+                }
+            } message: { backup in
+                Text("Saved \(backup.exportedAt.formatted(date: .abbreviated, time: .shortened)), with \(backup.state.activity.count) days of steps, \(backup.walks.count) walks and \(backup.state.journeys.count) journeys. It replaces what's on this iPhone now.")
+            }
+            .alert(backupMessage ?? "", isPresented: showingMessage) {
+                Button("OK") {}
+            }
             .onChange(of: goal) { _, newGoal in
                 if newGoal != model.goal {
                     model.setGoal(newGoal)
@@ -68,6 +129,21 @@ struct SettingsView: View {
             }
         }
         .presentationBackground(Theme.background)
+    }
+
+    private var backupFooter: String {
+        let saved = lastBackup > 0
+            ? "Last saved \(Date(timeIntervalSince1970: lastBackup).formatted(date: .abbreviated, time: .omitted)). "
+            : ""
+        return saved + "Saves your XP, journeys, quests and walks to a file, for example in iCloud Drive. Deleting Stride deletes them, so save one before reinstalling."
+    }
+
+    private var restoring: Binding<Bool> {
+        Binding(get: { backupToRestore != nil }, set: { if !$0 { backupToRestore = nil } })
+    }
+
+    private var showingMessage: Binding<Bool> {
+        Binding(get: { backupMessage != nil }, set: { if !$0 { backupMessage = nil } })
     }
 
     private var liveActivity: Binding<Bool> {
