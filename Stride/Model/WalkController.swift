@@ -374,12 +374,7 @@ final class WalkController: NSObject, CLLocationManagerDelegate {
     #if DEBUG
     /// Most of a lap of the Central Park Reservoir, for screenshots.
     func showSample() {
-        let center = (latitude: 40.7829, longitude: -73.9626)
-        route = (0...34).map { index in
-            let angle = Double(index) / 48 * 2 * .pi
-            return CLLocationCoordinate2D(latitude: center.latitude + 0.0042 * sin(angle),
-                                          longitude: center.longitude + 0.0036 * cos(angle))
-        }
+        route = SampleData.reservoirLap(points: 35).map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) }
         startDate = Date().addingTimeInterval(-21.5 * 60)
         steps = 2_330
         meters = 1_733

@@ -332,7 +332,7 @@ struct JourneyPicker: View {
     private func estimate(for route: Route) -> String {
         let days = Int((route.lengthKm / model.averageDailyKm).rounded(.up))
         switch days {
-        case ...1: return "About a day of walking"
+        case ...1: return "Less than a day at your pace"
         case 2...60: return "About \(days) days at your pace"
         default: return "About \(Int((Double(days) / 30).rounded())) months at your pace"
         }

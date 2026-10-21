@@ -51,9 +51,9 @@ jobs:
         run: |
           xcrun simctl status_bar "$UDID" override --time "9:41" --dataNetwork wifi --wifiMode active \
             --wifiBars 3 --cellularMode active --cellularBars 4 --batteryState charged --batteryLevel 100
-          # A spot by the Central Park Reservoir, for the walk map and journeys near you.
+          # By the Central Park Reservoir, where the sample walk is, for the walk map and journeys near you.
           xcrun simctl privacy "$UDID" grant location com.fry19.stride || true
-          xcrun simctl location "$UDID" set 40.7789,-73.9637 || true
+          xcrun simctl location "$UDID" set 40.7830,-73.9593 || true
           mkdir -p shots
           shoot() {
             xcrun simctl ui "$UDID" appearance "$3"

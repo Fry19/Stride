@@ -26,14 +26,25 @@ enum SampleData {
         Journeys.epic.first { $0.id == "camino" }.map { [JourneyPlan(route: $0, startDay: startDay)] } ?? []
     }
 
-    /// Two made-up walks around the Central Park Reservoir in New York.
-    static func walks(endingOn today: Day) -> [Walk] {
-        let center = (latitude: 40.7829, longitude: -73.9626)
-        let loop = (0...48).map { index -> Walk.Point in
+    /// The first `count` of 48 points around the Central Park Reservoir in New York, counterclockwise
+    /// from its north end: an ellipse lined up with the park, which runs 29° east of north.
+    static func reservoirLap(points count: Int = 49) -> [Walk.Point] {
+        let center = (latitude: 40.7853, longitude: -73.9622)
+        let (alongPark, acrossPark, tilt) = (420.0, 350.0, 29.0 * .pi / 180)
+        let metersPerDegree = 111_320.0
+        return (0..<count).map { index in
             let angle = Double(index) / 48 * 2 * .pi
-            return Walk.Point(latitude: center.latitude + 0.0042 * sin(angle),
-                              longitude: center.longitude + 0.0036 * cos(angle))
+            let along = alongPark * cos(angle), across = -acrossPark * sin(angle)
+            let east = along * sin(tilt) + across * cos(tilt)
+            let north = along * cos(tilt) - across * sin(tilt)
+            return Walk.Point(latitude: center.latitude + north / metersPerDegree,
+                              longitude: center.longitude + east / (metersPerDegree * cos(center.latitude * .pi / 180)))
         }
+    }
+
+    /// Two made-up laps of the Central Park Reservoir.
+    static func walks(endingOn today: Day) -> [Walk] {
+        let loop = reservoirLap()
         return [(1, 9.5, 3_412, 2_520.0), (3, 18.25, 5_160, 3_890.0)].map { daysAgo, hour, steps, meters in
             let start = today.adding(days: -daysAgo).startDate().addingTimeInterval(hour * 3600)
             return Walk(id: UUID(), start: start, end: start.addingTimeInterval(Double(steps) / 105 * 60),
