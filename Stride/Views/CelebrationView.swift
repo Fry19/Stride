@@ -78,7 +78,13 @@ struct CelebrationView: View {
             Button("Collect", action: onDone)
                 .buttonStyle(GlowButtonStyle())
                 .padding(.horizontal, 24)
+                .padding(.top, 28)
                 .padding(.bottom, 8)
+                .background {
+                    LinearGradient(colors: [Theme.background.opacity(0), Theme.background],
+                                   startPoint: .top, endPoint: .center)
+                        .ignoresSafeArea()
+                }
         }
         .onAppear {
             appeared = true
