@@ -14,6 +14,7 @@ struct TrophiesView: View {
         let summary = model.summary
         let stamps = summary.stamps
         let earned = summary.badges.filter(\.isUnlocked).count
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 ScreenHeader(eyebrow: "\(earned) of \(summary.badges.count) badges", title: "Trophies")
@@ -60,6 +61,9 @@ struct TrophiesView: View {
                 }
 
                 RecordsCard(summary: summary, walks: model.walks)
+                    .id("records")
+
+                GoalCalendar(summary: summary)
 
                 VStack(alignment: .leading, spacing: 14) {
                     SectionLabel(text: "Badges")
@@ -74,8 +78,6 @@ struct TrophiesView: View {
                         }
                     }
                 }
-
-                GoalCalendar(summary: summary)
 
                 VStack(alignment: .leading, spacing: 14) {
                     SectionLabel(text: "Passport")
@@ -109,6 +111,12 @@ struct TrophiesView: View {
             .padding(.bottom, 28)
         }
         .scrollIndicators(.hidden)
+        .onAppear {
+            if ScreenshotMode.screen == "records" {
+                proxy.scrollTo("records", anchor: .top)
+            }
+        }
+        }
         .background(ScreenBackground(glow: Theme.ember))
         .sheet(isPresented: $showingRecap) {
             RecapView()

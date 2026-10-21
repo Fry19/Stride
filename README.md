@@ -16,13 +16,23 @@ Stride reads your steps from Apple Health and counts new ones live while the app
 | **Streak** | Consecutive goal days. Every 7 days in a row earns a streak freeze (up to 2 saved), used automatically if you miss a day. |
 | **Badges** | 12 milestones, from your first day to 1,000,000 steps. |
 | **Quests** | Three small challenges a day, like "2,000 steps before 9 AM" or "out-walk yesterday", each worth 500 to 1,000 XP. |
-| **Journey** | Your walking distance moves you along the Inca Trail (≈43 km), Hadrian's Wall Path (≈135 km) and the Camino de Santiago (≈780 km), shown on a satellite map. Every stop you reach unlocks a postcard with a real view of the place (Look Around where Apple has it, otherwise 3D satellite). Distances and positions are approximate. |
+| **Journeys** | Pick where your steps take you: a real walking route from where you are to a park, landmark, museum, lake or beach nearby (planned with Apple Maps, from an afternoon's walk to a few weeks of steps), or a famous trail: the Inca Trail (≈43 km), Hadrian's Wall Path (≈135 km), the Camino de Santiago (≈780 km), the Appalachian Trail (≈3,500 km) or Route 66 (≈3,900 km). All your walking from the day you pick it moves you along the map. Every stop unlocks a postcard with a real view of the place (Look Around where Apple has it, otherwise 3D satellite), and finishing pays 100 XP per kilometer. Positions on the famous trails are approximate. |
+| **Records** | Your best day, week and month, longest streak, longest and fastest walk, daily average and all-time totals, plus a calendar of the last year lit up by goal days. |
 
 XP counts from the day you set the app up. Steps typed into the Health app by hand don't count.
 
 **Steps in the Dynamic Island:** a Live Activity shows today's steps and your goal ring on the Lock Screen and in the Dynamic Island. It updates live while Stride is open or you're on a walk, and every so often in the background when iOS gives the app time (iOS decides how often). iOS ends Live Activities after 8 hours; opening Stride starts it again. You can turn it off in Settings.
 
-**Walk mode:** tap Start a walk to track one walk's steps, distance, pace and GPS route. It keeps counting with the phone locked, adds the walk's timer and steps to the Live Activity, and saves the walk with its route map when you finish.
+**Walk mode:** tap Start a walk to track one walk's steps, distance, pace and GPS route. It keeps counting with the phone locked, adds the walk's timer and steps to the Live Activity (with pause and end buttons), and saves the walk with its route map and mile or kilometer splits when you finish.
+- **Pause and auto-pause:** pause by hand, or let Stride pause when you stand still for about 25 seconds and carry on when you walk again. The clock shows moving time.
+- **Spoken updates:** time and average pace every kilometer or half mile, and your goal at halfway and the finish. Music and podcasts dip while it talks. Mute it from the walk screen or Settings.
+- **Apple Health workouts:** turn on **Save walks to Apple Health** in Settings to save each walk as a walking workout with its route.
+
+**Hands-free:** say "Hey Siri, start a walk in Stride" (also pause, resume and end, or "check my steps in Stride"). The same actions are in the Shortcuts app, so a walk can go on the Action Button. On iOS 18 there's also a **Start a Walk** control for Control Center, the Lock Screen and the Action Button.
+
+**Evening nudge:** optional. If you haven't hit your goal by a time you choose, a notification says how many steps are left and about how long a walk that is. Nothing is sent on days you've made it.
+
+**Backup and status:** Settings can save everything Stride keeps (XP, journeys, quests, walks) to a file, for example in iCloud Drive, and restore it, also from the first screen after a reinstall. **Settings → Status** shows what Stride can read (Apple Health, Motion & Fitness, location, notifications, Live Activities, background updates) and how to fix anything that's off.
 
 **Race your past self:** Today compares your steps so far with yesterday, and with your best day this week, at the same time of day.
 
@@ -51,7 +61,9 @@ Either way, the first time you also need to:
 - Turn on **Settings → Privacy & Security → Developer Mode** on the iPhone and restart it.
 - Trust your Apple ID under **Settings → General → VPN & Device Management**.
 
-A free Apple ID can have 3 sideloaded apps installed at once, and SideStore counts as one of them. Stride's Live Activity lives in an app extension, which counts as an app too, so Stride uses 2 of the 3. Sideloadly and SideStore can strip the extension if you need the room; walks still work, just without the Lock Screen view.
+Deleting Stride deletes its data, so save a backup first (Settings → Backup) if you reinstall instead of refreshing.
+
+A free Apple ID can have 3 sideloaded apps installed at once, and SideStore counts as one of them. Stride's Live Activity and Control Center button live in an app extension, which counts as an app too, so Stride uses 2 of the 3. Sideloadly and SideStore can strip the extension if you need the room; walks still work, just without the Lock Screen view.
 
 Sideloading tools don't always keep the Apple Health permission. If Health access isn't offered, Stride uses the iPhone's motion sensor instead, which keeps about 7 days of history. Stride saves each day it sees, so your history still builds up as long as you open it at least once a week.
 
@@ -81,20 +93,21 @@ If Xcode refuses to sign the app because of the HealthKit capability, remove it:
 
 The simulator has no step data. Open **Today → gear icon → Show sample data** to fill the app with 60 days of made-up walking. Turn it off to go back to your real data.
 
-Debug builds can also open straight to a screen with sample data by launching with `-StrideScreen today` (or `journey`, `level`, `trophies`, `celebration`, `onboarding`). The screenshot workflow uses this.
+Debug builds can also open straight to a screen with sample data by launching with `-StrideScreen today` (or `walk`, `journey`, `picker`, `level`, `trophies`, `records`, `recap`, `celebration`, `onboarding`). The screenshot workflow uses this.
 
 ## Project layout
 
 ```
 Stride.xcodeproj
 Stride/                 The app (SwiftUI)
-  Model/                App state, saving, Apple Health, live steps, walks, quests, race, recaps, app icons
-  Views/                Today, Journey (with maps), Level, Trophies, walk screens, recaps, celebrations
-StrideWidgets/          Widget extension with the walk Live Activity
-Shared/                 Code used by both the app and the extension
+  Model/                App state, saving and backups, Apple Health, live steps, walks, nearby journeys, quests, nudges
+  Views/                Today, Journey (with maps), Level, Trophies, walk screens, records, settings and status
+  Intents/              Siri and Shortcuts
+StrideWidgets/          Widget extension with the Live Activity and the Control Center button
+Shared/                 Code used by both the app and the extension: Live Activity data and walk actions
 StrideCore/             Swift package with the rules: XP, levels and tiers, streaks, badges, quests, journey routes
 Design/                 Generator for the tier emblems, which are also the app icons
-Config/                 Entitlements (HealthKit)
+Config/                 Info.plist additions and entitlements (HealthKit)
 ```
 
 The ten emblems (also the app icons) are drawn by `Design/emblems.py` as SVG and rendered with headless Chromium. To change them, edit the script and run `Design/build.sh`, which updates `Stride/Assets.xcassets`.
@@ -105,7 +118,7 @@ GitHub Actions runs three workflows on macOS runners:
 
 - **Build** (every push to `main` and every pull request): runs the `StrideCore` tests and builds the app.
 - **Screenshots** (every push to `main`): runs the app in the iOS Simulator with sample data and pushes screenshots of each screen to the [`screenshots`](../../tree/screenshots) branch.
-- **Release** (when a `v*` tag is pushed, like `v1.0.1`): builds `Stride_<version>.ipa` and publishes it on the Releases page.
+- **Release** (when a `v*` tag is pushed, like `v1.0.1`, or started by hand with a tag name): builds `Stride_<version>.ipa` and publishes it on the Releases page.
 
 All the reward rules live in `StrideCore`, which has no iOS dependencies. To run its tests:
 
@@ -117,6 +130,5 @@ swift test
 ## Not built yet
 
 - Home Screen widgets (they need App Groups, which free Apple IDs may not allow)
-- A nudge notification when you're behind on your goal (this needs background Health updates)
 - A year-end "Wrapped"
 - Apple Watch app

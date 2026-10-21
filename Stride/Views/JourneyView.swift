@@ -5,7 +5,7 @@ struct JourneyView: View {
     @Environment(AppModel.self) private var model
     @State private var openPostcard: ReachedStop?
     @State private var showingMap = false
-    @State private var showingPicker = false
+    @State private var showingPicker = ScreenshotMode.screen == "picker"
 
     var body: some View {
         let summary = model.summary

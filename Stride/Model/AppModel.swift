@@ -69,6 +69,12 @@ final class AppModel {
         }
         walk.onPauseChange = { [weak self] in self?.updateLiveActivity(force: true) }
         WalkIntents.runner = self
+        #if DEBUG
+        if ScreenshotMode.screen == "walk" {
+            walk.showSample()
+            showsWalkScreen = true
+        }
+        #endif
     }
 
     var showsSampleDataBanner: Bool {

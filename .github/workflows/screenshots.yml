@@ -51,21 +51,27 @@ jobs:
         run: |
           xcrun simctl status_bar "$UDID" override --time "9:41" --dataNetwork wifi --wifiMode active \
             --wifiBars 3 --cellularMode active --cellularBars 4 --batteryState charged --batteryLevel 100
+          # A spot by the Central Park Reservoir, for the walk map and journeys near you.
+          xcrun simctl privacy "$UDID" grant location com.fry19.stride || true
+          xcrun simctl location "$UDID" set 40.7789,-73.9637 || true
           mkdir -p shots
           shoot() {
             xcrun simctl ui "$UDID" appearance "$3"
             xcrun simctl terminate "$UDID" com.fry19.stride 2>/dev/null || true
             xcrun simctl launch "$UDID" com.fry19.stride -StrideScreen "$2"
-            sleep 8
+            sleep "${4:-8}"
             xcrun simctl io "$UDID" screenshot "shots/$1.png"
           }
-          shoot 1-today today dark
-          shoot 2-level level dark
-          shoot 3-celebration celebration dark
-          shoot 4-journey journey dark
-          shoot 5-trophies trophies dark
-          shoot 7-recap recap dark
-          shoot 6-onboarding onboarding dark
+          shoot 01-today today dark
+          shoot 02-walk walk dark 12
+          shoot 03-level level dark
+          shoot 04-celebration celebration dark
+          shoot 05-journey journey dark
+          shoot 06-picker picker dark 30
+          shoot 07-trophies trophies dark
+          shoot 08-records records dark
+          shoot 09-recap recap dark
+          shoot 10-onboarding onboarding dark
           ls -la shots
 
       - name: Push to the screenshots branch

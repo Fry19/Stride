@@ -267,7 +267,7 @@ final class WalkController: NSObject, CLLocationManagerDelegate {
 
     /// Called as today's live step count rises, so the walk counts steps the moment they happen.
     func noteTodaySteps(_ count: Int, goal: Int) {
-        guard isActive else { return }
+        guard isActive, !ScreenshotMode.isActive else { return }
         todaySteps = count
         self.goal = goal
         checkForSteps()
@@ -370,6 +370,22 @@ final class WalkController: NSObject, CLLocationManagerDelegate {
         }
         return kept
     }
+
+    #if DEBUG
+    /// Most of a lap of the Central Park Reservoir, for screenshots.
+    func showSample() {
+        let center = (latitude: 40.7829, longitude: -73.9626)
+        route = (0...34).map { index in
+            let angle = Double(index) / 48 * 2 * .pi
+            return CLLocationCoordinate2D(latitude: center.latitude + 0.0042 * sin(angle),
+                                          longitude: center.longitude + 0.0036 * cos(angle))
+        }
+        startDate = Date().addingTimeInterval(-21.5 * 60)
+        steps = 2_330
+        meters = 1_733
+        splits = StrideFormat.usesMiles ? [1_190] : [744]
+    }
+    #endif
 
     /// The walk in progress, for the Live Activity.
     var activityInfo: StrideActivityAttributes.ContentState.Walk? {
