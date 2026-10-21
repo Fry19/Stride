@@ -5,6 +5,9 @@ import StrideCore
 @MainActor
 @Observable
 final class AppModel {
+    /// The one model, shared with Siri and Shortcuts.
+    static let shared = AppModel()
+
     private(set) var state: SavedState
     private(set) var summary: RewardSummary
     /// Newly earned levels, stamps, badges and postcards waiting to be shown.
@@ -24,6 +27,8 @@ final class AppModel {
     private(set) var walks: [Walk] = []
     /// The walk in progress, if any.
     let walk = WalkController()
+    /// Whether the full-screen walk view is showing.
+    var showsWalkScreen = false
     /// Suggested journeys around the user's location.
     let nearby = NearbyJourneyFinder()
     @ObservationIgnored private let liveActivity = LiveActivityManager()
@@ -61,6 +66,7 @@ final class AppModel {
             self.summary = Self.makeSummary(for: self.state, live: nil, today: today)
         }
         walk.onPauseChange = { [weak self] in self?.updateLiveActivity(force: true) }
+        WalkIntents.runner = self
     }
 
     var showsSampleDataBanner: Bool {

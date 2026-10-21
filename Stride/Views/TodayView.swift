@@ -6,7 +6,6 @@ struct TodayView: View {
     @Environment(AppModel.self) private var model
     @State private var showingSettings = false
     @State private var showingRecap = false
-    @State private var showingWalk = false
     let openLevel: () -> Void
 
     var body: some View {
@@ -30,7 +29,7 @@ struct TodayView: View {
                 }
                 hero(today)
                 WalkLauncher {
-                    showingWalk = true
+                    model.showsWalkScreen = true
                 }
                 if let race = model.race, !race.rivals.isEmpty {
                     RaceCard(race: race, steps: today.steps)
@@ -80,9 +79,6 @@ struct TodayView: View {
         }
         .sheet(isPresented: $showingRecap) {
             RecapView()
-        }
-        .fullScreenCover(isPresented: $showingWalk) {
-            WalkView()
         }
         .sensoryFeedback(.success, trigger: today.goalMet)
     }

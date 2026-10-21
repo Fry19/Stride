@@ -28,6 +28,10 @@ struct RootView: View {
                 }
                 .toolbarBackground(Theme.background.opacity(0.92), for: .tabBar)
                 .toolbarBackground(.visible, for: .tabBar)
+                // Here rather than on Today, so Siri and Control Center can open it from any tab.
+                .fullScreenCover(isPresented: showingWalk) {
+                    WalkView()
+                }
             } else {
                 OnboardingView()
             }
@@ -57,6 +61,10 @@ struct RootView: View {
                 break
             }
         }
+    }
+
+    private var showingWalk: Binding<Bool> {
+        Binding(get: { model.showsWalkScreen }, set: { model.showsWalkScreen = $0 })
     }
 
     private var showingCelebration: Binding<Bool> {

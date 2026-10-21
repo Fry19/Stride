@@ -1,4 +1,5 @@
 import ActivityKit
+import AppIntents
 import SwiftUI
 import WidgetKit
 
@@ -38,19 +39,25 @@ struct StrideLiveActivity: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     if let walk = state.walk {
-                        HStack {
-                            Label {
-                                Text(timerInterval: walk.startedAt...Date.distantFuture, pauseTime: walk.pausedAt,
-                                     countsDown: false)
+                        HStack(spacing: 10) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Label {
+                                    Text(timerInterval: walk.startedAt...Date.distantFuture, pauseTime: walk.pausedAt,
+                                         countsDown: false)
+                                        .monospacedDigit()
+                                } icon: {
+                                    Image(systemName: walk.pausedAt == nil ? "figure.walk" : "pause.fill")
+                                        .foregroundStyle(ember)
+                                }
+                                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                Text("\(walk.steps.formatted()) steps · \(state.distanceText(walk.meters))")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(.secondary)
                                     .monospacedDigit()
-                            } icon: {
-                                Image(systemName: walk.pausedAt == nil ? "figure.walk" : "pause.fill").foregroundStyle(ember)
                             }
-                            Spacer()
-                            Text("\(walk.steps.formatted()) steps · \(state.distanceText(walk.meters))")
-                                .monospacedDigit()
+                            Spacer(minLength: 0)
+                            WalkButtons(isPaused: walk.pausedAt != nil)
                         }
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .padding(.horizontal, 4)
                     } else {
                         VStack(spacing: 6) {
@@ -134,6 +141,9 @@ private struct LockScreenView: View {
                 }
             }
             Spacer(minLength: 0)
+            if let walk = state.walk {
+                WalkButtons(isPaused: walk.pausedAt != nil)
+            }
         }
         .padding(16)
     }
@@ -142,6 +152,32 @@ private struct LockScreenView: View {
         if isStale { return "Open Stride to update" }
         let progress = state.stepsToGo > 0 ? "\(state.stepsToGo.formatted()) to go" : "Goal reached"
         return "\(progress) · Level \(state.level)"
+    }
+}
+
+/// Pause or resume, and end, without opening Stride.
+private struct WalkButtons: View {
+    let isPaused: Bool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if isPaused {
+                Button(intent: ResumeWalkIntent()) { icon("play.fill", label: "Resume") }
+            } else {
+                Button(intent: PauseWalkIntent()) { icon("pause.fill", label: "Pause") }
+            }
+            Button(intent: EndWalkIntent()) { icon("stop.fill", label: "End walk") }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func icon(_ symbol: String, label: String) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 14, weight: .bold))
+            .foregroundStyle(.white)
+            .frame(width: 38, height: 38)
+            .background(Color.white.opacity(0.16), in: Circle())
+            .accessibilityLabel(label)
     }
 }
 

@@ -2,7 +2,7 @@ import SwiftUI
 
 @main
 struct StrideApp: App {
-    @State private var model = AppModel()
+    @State private var model = AppModel.shared
 
     var body: some Scene {
         WindowGroup {
