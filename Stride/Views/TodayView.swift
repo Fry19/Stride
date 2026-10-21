@@ -5,7 +5,7 @@ import SwiftUI
 struct TodayView: View {
     @Environment(AppModel.self) private var model
     @State private var showingSettings = false
-    let openLocker: () -> Void
+    let openLevel: () -> Void
 
     var body: some View {
         let summary = model.summary
@@ -15,7 +15,7 @@ struct TodayView: View {
             VStack(spacing: 20) {
                 ScreenHeader(eyebrow: StrideFormat.longDate(today.day), title: "Today") {
                     HStack(spacing: 10) {
-                        Button(action: openLocker) {
+                        Button(action: openLevel) {
                             LevelChip(level: level)
                         }
                         GlassIconButton(systemImage: "gearshape.fill", label: "Settings") {
@@ -27,7 +27,7 @@ struct TodayView: View {
                     SampleDataBanner()
                 }
                 hero(today)
-                Button(action: openLocker) {
+                Button(action: openLevel) {
                     LevelCard(level: level)
                 }
                 .buttonStyle(.plain)
@@ -185,9 +185,9 @@ private struct UpNextCard: View {
         VStack(alignment: .leading, spacing: 16) {
             SectionLabel(text: "Up next")
             if let next = summary.level.nextTier {
-                UpNextRow(title: "\(next.tier.name) shoe", detail: "\(StrideFormat.xp(next.xpNeeded)) to go") {
-                    ShoeImage(tier: next.tier, locked: true)
-                        .overlay(Image(systemName: "lock.fill").font(.system(size: 10)).foregroundStyle(Theme.textSecondary))
+                UpNextRow(title: "\(next.tier.name) tier", detail: "\(StrideFormat.xp(next.xpNeeded)) to go") {
+                    EmblemImage(tier: next.tier)
+                        .frame(width: 30, height: 30)
                 }
             }
             if let stop = summary.journey.nextStop, let km = summary.journey.kmToNextStop {

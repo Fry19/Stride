@@ -3,7 +3,7 @@ import StrideCore
 
 /// Debug builds launched with `-StrideScreen <screen>` open straight to that screen, filled with
 /// sample data and without touching saved data. The screenshots workflow uses this.
-/// Screens: today, journey, locker, trophies, celebration, onboarding.
+/// Screens: today, journey, level, trophies, celebration, onboarding.
 enum ScreenshotMode {
     static let screen: String? = {
         #if DEBUG
@@ -25,7 +25,7 @@ enum ScreenshotMode {
         return state
     }
 
-    /// The latest new-shoe level-up, stamp and badge from the sample history, for the celebration screen.
+    /// The latest new-tier level-up, stamp and badge from the sample history, for the celebration screen.
     static func celebration(from summary: RewardSummary) -> [Unlock] {
         guard screen == "celebration" else { return [] }
         func latest(_ matches: (Unlock.Kind) -> Bool) -> Unlock? {

@@ -113,71 +113,75 @@ struct StatTile<Icon: View>: View {
     }
 }
 
-/// The shoe for a tier. Locked shoes show as a faint silhouette.
-struct ShoeImage: View {
+/// A rounded square with the corner radius of an app icon.
+struct IconShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        Path(roundedRect: rect, cornerRadius: min(rect.width, rect.height) * 0.225, style: .continuous)
+    }
+}
+
+/// A tier's emblem, the same artwork as its app icon. Locked tiers are dimmed and gray.
+struct EmblemImage: View {
     let tier: Tier
     var locked = false
 
     var body: some View {
-        if locked {
-            Image(tier.imageName)
-                .renderingMode(.template)
-                .resizable()
-                .scaledToFit()
-                .foregroundStyle(Color.white.opacity(0.10))
-                .accessibilityLabel("Locked shoe")
-        } else {
-            Image(tier.imageName)
-                .resizable()
-                .scaledToFit()
-                .accessibilityLabel("\(tier.name) shoe")
-        }
+        Image(tier.emblemName)
+            .resizable()
+            .scaledToFit()
+            .clipShape(IconShape())
+            .overlay(IconShape().stroke(Color.white.opacity(0.14), lineWidth: 1))
+            .saturation(locked ? 0 : 1)
+            .opacity(locked ? 0.25 : 1)
+            .accessibilityLabel(locked ? "Locked tier" : "\(tier.name) emblem")
     }
 }
 
-/// A shoe floating over its own glow, with a shadow on the floor.
-struct ShoeHero: View {
+/// An emblem floating over its own glow, with a soft shadow beneath.
+struct EmblemHero: View {
     let tier: Tier
-    var height: CGFloat = 170
+    var size: CGFloat = 140
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var floating = false
 
     var body: some View {
         ZStack {
-            Ellipse()
-                .fill(RadialGradient(colors: [tier.color.opacity(0.55), .clear],
-                                     center: .center, startRadius: 0, endRadius: height * 1.1))
-                .frame(width: height * 2.4, height: height * 1.4)
-                .blur(radius: 24)
-            VStack(spacing: height * 0.02) {
-                ShoeImage(tier: tier)
-                    .frame(height: height)
-                    .offset(y: floating ? -6 : 4)
+            Circle()
+                .fill(RadialGradient(colors: [tier.color.opacity(0.5), .clear],
+                                     center: .center, startRadius: 0, endRadius: size * 1.1))
+                .frame(width: size * 2.4, height: size * 2.4)
+                .blur(radius: 20)
+            VStack(spacing: size * 0.14) {
+                EmblemImage(tier: tier)
+                    .frame(width: size, height: size)
+                    .shadow(color: tier.color.opacity(0.35), radius: size * 0.18)
+                    .rotation3DEffect(.degrees(floating ? 6 : -6), axis: (x: 0.2, y: 1, z: 0))
+                    .offset(y: floating ? -5 : 4)
                 Ellipse()
-                    .fill(Color.black.opacity(0.7))
-                    .frame(width: height * 1.3, height: height * 0.08)
+                    .fill(Color.black.opacity(0.75))
+                    .frame(width: size * 0.8, height: size * 0.08)
                     .blur(radius: 8)
-                    .scaleEffect(floating ? 0.9 : 1)
+                    .scaleEffect(floating ? 0.88 : 1)
             }
         }
         .onAppear {
             guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) {
+            withAnimation(.easeInOut(duration: 2.8).repeatForever(autoreverses: true)) {
                 floating = true
             }
         }
     }
 }
 
-/// A small capsule with the current shoe and level.
+/// A small capsule with the current emblem and level.
 struct LevelChip: View {
     let level: LevelProgress
 
     var body: some View {
         HStack(spacing: 6) {
-            ShoeImage(tier: level.tier)
-                .frame(height: 18)
+            EmblemImage(tier: level.tier)
+                .frame(width: 22, height: 22)
             Text("Lv \(level.level)")
                 .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
@@ -191,15 +195,15 @@ struct LevelChip: View {
     }
 }
 
-/// Current level, shoe and XP toward the next level.
+/// Current level, emblem and XP toward the next level.
 struct LevelCard: View {
     let level: LevelProgress
 
     var body: some View {
         HStack(spacing: 16) {
-            ShoeImage(tier: level.tier)
-                .frame(width: 96)
-                .shadow(color: level.tier.color.opacity(0.4), radius: 14)
+            EmblemImage(tier: level.tier)
+                .frame(width: 64, height: 64)
+                .shadow(color: level.tier.color.opacity(0.35), radius: 12)
             VStack(alignment: .leading, spacing: 9) {
                 HStack(alignment: .firstTextBaseline) {
                     Text("Level \(level.level)")

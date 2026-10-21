@@ -1,6 +1,6 @@
 import Foundation
 
-/// Every five levels is a tier, and each tier has its own shoe.
+/// Every five levels is a tier, and each tier has its own material for the emblem and app icon.
 public struct Tier: Identifiable, Hashable {
     public let number: Int
     public let name: String
@@ -35,16 +35,16 @@ public enum Levels {
     }
 
     public static let tiers: [Tier] = [
-        Tier(number: 1, name: "Fresh Kicks", tagline: "Box-fresh and ready to go."),
-        Tier(number: 2, name: "Laced Up", tagline: "Electric blue laces. You mean business."),
-        Tier(number: 3, name: "Trail Blazer", tagline: "Chunky grip for any path."),
-        Tier(number: 4, name: "Neon Rush", tagline: "Glows as bright as your streak."),
-        Tier(number: 5, name: "Carbon Racer", tagline: "Carbon weave, built for speed."),
-        Tier(number: 6, name: "Chrome", tagline: "Mirror-polished. Everyone notices."),
-        Tier(number: 7, name: "Solid Gold", tagline: "Pure gold, earned one step at a time."),
-        Tier(number: 8, name: "Diamond", tagline: "Holographic and dazzling."),
-        Tier(number: 9, name: "Winged", tagline: "Gold with wings. Basically flying."),
-        Tier(number: 10, name: "Cosmic", tagline: "Galaxy-dyed, winged and trailing fire."),
+        Tier(number: 1, name: "Chalk", tagline: "Where every walker starts."),
+        Tier(number: 2, name: "Graphite", tagline: "Matte, dark and understated."),
+        Tier(number: 3, name: "Copper", tagline: "Your first metal. It suits you."),
+        Tier(number: 4, name: "Bronze", tagline: "Warm, weathered and earned."),
+        Tier(number: 5, name: "Steel", tagline: "Brushed steel, built to last."),
+        Tier(number: 6, name: "Silver", tagline: "Polished to a mirror shine."),
+        Tier(number: 7, name: "Gold", tagline: "Solid gold, one step at a time."),
+        Tier(number: 8, name: "Platinum", tagline: "Rarer than gold."),
+        Tier(number: 9, name: "Obsidian", tagline: "Volcanic glass with a hidden spectrum."),
+        Tier(number: 10, name: "Aurora", tagline: "The northern lights, earned on foot."),
     ]
 }
 

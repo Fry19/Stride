@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum AppTab: String {
-    case today, journey, locker, trophies
+    case today, journey, level, trophies
 }
 
 struct RootView: View {
@@ -13,15 +13,15 @@ struct RootView: View {
         Group {
             if model.state.hasOnboarded {
                 TabView(selection: $tab) {
-                    TodayView { tab = .locker }
+                    TodayView { tab = .level }
                         .tabItem { Label("Today", systemImage: "figure.walk") }
                         .tag(AppTab.today)
                     JourneyView()
                         .tabItem { Label("Journey", systemImage: "map.fill") }
                         .tag(AppTab.journey)
-                    LockerView()
-                        .tabItem { Label("Locker", systemImage: "shoe.fill") }
-                        .tag(AppTab.locker)
+                    LevelView()
+                        .tabItem { Label("Level", systemImage: "rosette") }
+                        .tag(AppTab.level)
                     TrophiesView()
                         .tabItem { Label("Trophies", systemImage: "trophy.fill") }
                         .tag(AppTab.trophies)

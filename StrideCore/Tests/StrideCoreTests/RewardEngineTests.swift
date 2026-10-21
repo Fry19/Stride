@@ -120,7 +120,7 @@ final class RewardEngineTests: XCTestCase {
         XCTAssertEqual(progress.level, 2)
         XCTAssertEqual(progress.xpIntoLevel, 3_000)
         XCTAssertEqual(progress.xpForLevel, 6_000)
-        XCTAssertEqual(progress.xpToNextLevel, 5_000)
+        XCTAssertEqual(progress.xpToNextLevel, 3_000)
         XCTAssertEqual(progress.fraction, 0.5, accuracy: 0.0001)
         XCTAssertEqual(progress.nextTier?.tier.number, 2)
         XCTAssertEqual(progress.nextTier?.xpNeeded, 45_000)

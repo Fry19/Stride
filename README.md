@@ -1,6 +1,6 @@
 # Stride
 
-An iPhone app that levels you up for walking. You start in a plain white sneaker; every step earns XP, and every five levels unlocks a new shoe, each one more extravagant than the last. Your app icon changes to match.
+An iPhone app that levels you up for walking. Every step earns XP, and every five levels moves you up a tier, from Chalk through Copper, Steel and Gold to Aurora. Your app icon changes material to match.
 
 Stride reads your steps from Apple Health and counts new ones live while the app is open.
 
@@ -10,8 +10,8 @@ Stride reads your steps from Apple Health and counts new ones live while the app
 | --- | --- |
 | **XP** | 1 XP per step, +1,500 for hitting your daily goal, and a bonus for each badge (200 to 10,000). |
 | **Levels** | 50 levels. Level 2 comes on your first walk; level 50 takes roughly a year and a half of 8,000-step days. |
-| **Shoes** | A new shoe every 5 levels: Fresh Kicks, Laced Up, Trail Blazer, Neon Rush, Carbon Racer, Chrome, Solid Gold, Diamond, Winged and Cosmic. |
-| **App icon** | Switches to your newest shoe when you unlock it. You can also pick any unlocked icon in the Locker tab. |
+| **Tiers** | A new tier every 5 levels, each a different material: Chalk, Graphite, Copper, Bronze, Steel, Silver, Gold, Platinum, Obsidian and Aurora. |
+| **App icon** | Switches to your newest tier's material when you reach it. You can also pick any unlocked icon in the Level tab. |
 | **Stamps** | One for every day you hit your goal. |
 | **Streak** | Consecutive goal days. Every 7 days in a row earns a streak freeze (up to 2 saved), used automatically if you miss a day. |
 | **Badges** | 12 milestones, from your first day to 1,000,000 steps. |
@@ -72,7 +72,7 @@ If Xcode refuses to sign the app because of the HealthKit capability, remove it:
 
 The simulator has no step data. Open **Today → gear icon → Show sample data** to fill the app with 60 days of made-up walking. Turn it off to go back to your real data.
 
-Debug builds can also open straight to a screen with sample data by launching with `-StrideScreen today` (or `journey`, `locker`, `trophies`, `celebration`, `onboarding`). The screenshot workflow uses this.
+Debug builds can also open straight to a screen with sample data by launching with `-StrideScreen today` (or `journey`, `level`, `trophies`, `celebration`, `onboarding`). The screenshot workflow uses this.
 
 ## Project layout
 
@@ -80,13 +80,13 @@ Debug builds can also open straight to a screen with sample data by launching wi
 Stride.xcodeproj
 Stride/                 The app (SwiftUI)
   Model/                App state, saving, Apple Health, live step counting, app icon switching
-  Views/                Today, Journey, Locker, Trophies, Settings, onboarding, celebrations
+  Views/                Today, Journey, Level, Trophies, Settings, onboarding, celebrations
 StrideCore/             Swift package with the rules: XP, levels and tiers, streaks, badges, journey routes
-Design/                 Generator for the shoe artwork and app icons
+Design/                 Generator for the tier emblems, which are also the app icons
 Config/                 Entitlements (HealthKit)
 ```
 
-The ten shoes and app icons are drawn by `Design/shoes.py` as SVG and rendered with headless Chromium. To change them, edit the script and run `Design/build.sh`, which updates `Stride/Assets.xcassets`.
+The ten emblems (also the app icons) are drawn by `Design/emblems.py` as SVG and rendered with headless Chromium. To change them, edit the script and run `Design/build.sh`, which updates `Stride/Assets.xcassets`.
 
 ## Builds
 

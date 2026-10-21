@@ -1,7 +1,7 @@
 import StrideCore
 import SwiftUI
 
-/// Stride's look: near-black backgrounds lit by the color of your current shoe,
+/// Stride's look: near-black backgrounds lit by the color of your current tier,
 /// frosted glass panels, and warm gradients for progress.
 enum Theme {
     static let background = Color(hex: 0x050507)
@@ -45,24 +45,23 @@ extension Color {
 }
 
 extension Tier {
-    /// The glow color of this tier's shoe.
+    /// The glow color of this tier's material.
     var color: Color {
         switch number {
-        case 1: return Color(hex: 0xE8E8F0)
-        case 2: return Color(hex: 0x4D84FF)
-        case 3: return Color(hex: 0xFF8A3D)
-        case 4: return Color(hex: 0xC24DFF)
-        case 5: return Color(hex: 0xFF6A1F)
-        case 6: return Color(hex: 0xBFD3FF)
-        case 7: return Color(hex: 0xFFD25A)
-        case 8: return Color(hex: 0xB9C8FF)
-        case 9: return Color(hex: 0xFFD86B)
-        default: return Color(hex: 0x8C6BFF)
+        case 1: return Color(hex: 0xEDEAE3)
+        case 2: return Color(hex: 0x9097A3)
+        case 3: return Color(hex: 0xE58E5E)
+        case 4: return Color(hex: 0xC9A06A)
+        case 5: return Color(hex: 0xA9B6C4)
+        case 6: return Color(hex: 0xE4E9F0)
+        case 7: return Color(hex: 0xF2C14E)
+        case 8: return Color(hex: 0xDCE6F4)
+        case 9: return Color(hex: 0xA88CFF)
+        default: return Color(hex: 0x5CF2D0)
         }
     }
 
-    var imageName: String { "Shoe\(number)" }
-    var iconPreviewName: String { "IconPreview\(number)" }
+    var emblemName: String { "Emblem\(number)" }
 
     var levelRange: String { "Levels \(firstLevel)–\(lastLevel)" }
 }

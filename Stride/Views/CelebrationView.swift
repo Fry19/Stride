@@ -2,7 +2,7 @@ import StrideCore
 import SwiftUI
 
 /// Shown full screen when you level up or earn stamps, badges or postcards.
-/// A new tier gets a shoe reveal.
+/// A new tier gets an emblem reveal.
 struct CelebrationView: View {
     let unlocks: [Unlock]
     let level: LevelProgress
@@ -100,8 +100,8 @@ struct CelebrationView: View {
     @ViewBuilder private var hero: some View {
         if let tier = newTier {
             VStack(spacing: 14) {
-                SectionLabel(text: "New shoe unlocked")
-                ShoeHero(tier: tier, height: 160)
+                SectionLabel(text: "New tier unlocked")
+                EmblemHero(tier: tier, size: 150)
                     .scaleEffect(appeared || reduceMotion ? 1 : 0.4)
                     .opacity(appeared || reduceMotion ? 1 : 0)
                     .animation(reduceMotion ? nil : .spring(response: 0.6, dampingFraction: 0.62), value: appeared)
@@ -117,14 +117,14 @@ struct CelebrationView: View {
         } else if let reached = levelsReached.max() {
             VStack(spacing: 10) {
                 SectionLabel(text: "Level up")
-                ShoeHero(tier: level.tier, height: 120)
+                EmblemHero(tier: level.tier, size: 110)
                 Text("Level \(reached)")
                     .font(.system(size: 56, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
                     .scaleEffect(appeared || reduceMotion ? 1 : 0.6)
                     .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.6), value: appeared)
                 if let next = level.nextTier {
-                    Text("\(StrideFormat.xp(next.xpNeeded)) until the \(next.tier.name) shoe")
+                    Text("\(StrideFormat.xp(next.xpNeeded)) until \(next.tier.name)")
                         .font(.subheadline)
                         .foregroundStyle(Theme.textSecondary)
                 }

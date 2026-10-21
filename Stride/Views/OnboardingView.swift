@@ -9,7 +9,7 @@ struct OnboardingView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
-                ShoeHero(tier: Levels.tiers[0], height: 130)
+                EmblemHero(tier: Levels.tiers[0], size: 120)
                     .frame(maxWidth: .infinity)
                     .padding(.top, 28)
 
@@ -18,11 +18,11 @@ struct OnboardingView: View {
                         .font(.system(size: 14, weight: .heavy))
                         .tracking(6)
                         .foregroundStyle(Theme.ember)
-                    Text("Every step levels up your shoe.")
+                    Text("Every step levels you up.")
                         .font(.system(size: 34, weight: .bold))
                         .foregroundStyle(.white)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text("You start in a plain white sneaker. Walk to earn XP, climb 50 levels and unlock 10 shoes, each wilder than the last.")
+                    Text("You start at Chalk. Walk to earn XP, climb 50 levels and work your way up through ten materials, from copper and gold to aurora.")
                         .font(.body)
                         .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -31,8 +31,8 @@ struct OnboardingView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     FeatureRow(symbol: "sparkles", color: Theme.xpColors[0], title: "Earn XP",
                                text: "Every step is 1 XP, and hitting your daily goal adds 1,500 more.")
-                    FeatureRow(symbol: "arrow.up.circle.fill", color: Theme.ember, title: "Level up your shoe",
-                               text: "A new shoe every 5 levels, from fresh kicks to cosmic wings. Your app icon changes to match.")
+                    FeatureRow(symbol: "arrow.up.circle.fill", color: Theme.ember, title: "Climb the tiers",
+                               text: "A new material every 5 levels. Your app icon changes to match.")
                     FeatureRow(symbol: "map.fill", color: Color.route("camino"), title: "Collect along the way",
                                text: "Stamps for goal days, badges for milestones, and postcards from three famous trails.")
                 }
